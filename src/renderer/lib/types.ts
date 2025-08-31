@@ -42,3 +42,10 @@ export interface  InvoiceListItem {
   totalAmount: number,
   patient: string
 }
+
+export interface ServiceItem {
+  id: string,
+  name: string,
+  path: string[],
+  price: number
+}

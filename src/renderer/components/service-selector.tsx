@@ -9,8 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import type {  ServiceItem } from '@/contexts/app-context';
-import type {PriceList, PriceNode } from '@/lib/types'
+import type {PriceList, PriceNode, ServiceItem } from '@/lib/types'
 
 interface ServiceSelectorProps {
   priceList: PriceList;
@@ -69,7 +68,7 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
     <div className="space-y-4">
       {/* Breadcrumb */}
       {selectedPath.length > 0 && (
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600">
           <span>Path:</span>
           {selectedPath.map((segment, idx) => (
             // eslint-disable-next-line react/no-array-index-key

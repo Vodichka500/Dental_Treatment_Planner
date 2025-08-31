@@ -33,7 +33,9 @@ export async function generateInvoiceWord(invoice: Invoice) {
     procedures.push(makeProcedureLine(idx + 1, srv.path, srv.selectedTeeth));
 
     if (srv.comment) {
-      procedures.push(new Paragraph(`  Комментарий врача: ${srv.comment}`));
+      procedures.push(...spacing1)
+      procedures.push(new Paragraph(`Комментарий врача:`));
+      procedures.push(new Paragraph(srv.comment))
     }
 
     if (srv.linkedToTeeth && srv.selectedTeeth?.length > 0) {
@@ -179,7 +181,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
               children: [
                 new TextRun({
                   text: doctor,
-                  size: 28, // размер 14 pt → в docx нужно умножить на 2
+                  size: 24, // размер 14 pt → в docx нужно умножить на 2
                 }),
               ],
             })],
@@ -230,7 +232,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
               children: [
                 new TextRun({
                   text: pacient,
-                  size: 28, // размер 14 pt → в docx нужно умножить на 2
+                  size: 24, // размер 14 pt → в docx нужно умножить на 2
                 }),
               ],
             })],
@@ -247,7 +249,7 @@ function makeProcedureLine(index: number, steps: string[], selectedTooths: strin
   return new Paragraph({
     children: [
       new TextRun({ text: `${index}. `, bold: true, size: 22 }),
-      new TextRun({ text: steps.join(" → "), bold: true, size: 22 }),
+      new TextRun({ text: steps.join(" ⸱ "), bold: true, size: 22 }),
       new TextRun({ text: toothNumbersText, bold: true, size: 22 }),
     ],
   });

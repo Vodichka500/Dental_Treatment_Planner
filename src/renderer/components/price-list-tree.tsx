@@ -12,6 +12,11 @@ interface PriceListTreeProps {
   currency: string
 }
 
+
+// 🔥 Утилиты для сериализации/десериализации пути
+const serializePath = (path: string[]) => path.join("||")
+const deserializePath = (pathStr: string) => pathStr.split("||")
+
 export default function PriceListTree({ priceList, onUpdate, currency }: PriceListTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [editingItem, setEditingItem] = useState<string | null>(null)
@@ -31,22 +36,24 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
 
   /** ---------------- HELPERS ---------------- */
 
-  const toggleNode = (path: string) => {
+
+  const toggleNode = (path: string[]) => {
+    const id = serializePath(path) // 🔥 вместо строки с точками
     setExpandedNodes((prev) => {
       const next = new Set(prev)
-      // eslint-disable-next-line no-unused-expressions
-      next.has(path) ? next.delete(path) : next.add(path)
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
   }
 
   const deepClone = <T,>(obj: T): T => JSON.parse(JSON.stringify(obj))
 
+
   /** ---------------- EDITING ---------------- */
 
 // Начало редактирования
-  const startEdit = (path: string, type: "name" | "price", currentValue: string | number) => {
-    setEditingItem(path)
+  const startEdit = (path: string[], type: "name" | "price", currentValue: string | number) => {
+    setEditingItem(serializePath(path)) // 🔥 сериализация пути
     setEditType(type)
     setEditValue(currentValue.toString())
   }
@@ -59,7 +66,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
     const newPriceList = deepClone(priceList)
 
 
-    const pathParts = editingItem.split(".")
+    const pathParts = deserializePath(editingItem) // 🔥 вместо split(".")
     const keyToEdit = pathParts[pathParts.length - 1]
     const parentPath = pathParts.slice(0, -1)
 
@@ -73,9 +80,9 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
 
     if (editType === "price") {
       const price = parseFloat(editValue)
-      if (Number.isNaN(price)) {
-        return
-      }
+
+      if (Number.isNaN(price)) return
+
       parentNode[keyToEdit].price = price
     } else {
       // Переименование ключа
@@ -100,8 +107,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
 
   const confirmDeleteItem = () => {
     if (!deleteModal) return
-    const pathParts = deleteModal.split(".")
-    console.log(pathParts)
+    const pathParts = deserializePath(deleteModal) // 🔥
     const newPriceList = deepClone(priceList)
 
     let current: any = newPriceList
@@ -135,7 +141,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
     }
     const subcategory = { name: newSubcategoryName, children: {} }
 
-    const pathParts = showAddSubcategory!.split(".")
+    const pathParts = deserializePath(showAddSubcategory!)
 
     const updatedPriceList = deepClone(priceList)
 
@@ -144,13 +150,10 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
     // Проходим по пути
     for (let i = 0; i < pathParts.length; i += 1) {
       const key = pathParts[i]
-      if (!current[key]) {
-        console.error(`Путь "${pathParts.slice(0, i + 1).join(" -> ")}" не найден.`)
-        return
-      }
-      if (!current[key].children) {
-        current[key].children = {}
-      }
+
+      if (!current[key]) return
+      if (!current[key].children) current[key].children = {}
+
       current = current[key].children
     }
 
@@ -164,7 +167,6 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
   }
 
   const addService = () => {
-    console.log(`999`)
     if (Number.isNaN(newServicePrice) || newServiceName === "") {
       setShowAddService(null)
       setNewServicePrice(0)
@@ -174,7 +176,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
     }
     const service = { name: newServiceName, price: newServicePrice }
     console.log(`Service: ${service}`)
-    const pathParts = showAddService!.split(".")
+    const pathParts = deserializePath(showAddService!)
     const updatedPriceList = deepClone(priceList)
 
     let current = updatedPriceList
@@ -182,13 +184,10 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
     // Проходим по пути
     for (let i = 0; i < pathParts.length; i += 1) {
       const key = pathParts[i]
-      if (!current[key]) {
-        console.error(`Путь "${pathParts.slice(0, i + 1).join(" -> ")}" не найден.`)
-        return
-      }
-      if (!current[key].children) {
-        current[key].children = {}
-      }
+
+      if (!current[key]) return
+      if (!current[key].children) current[key].children = {}
+
       current = current[key].children
     }
 
@@ -204,15 +203,18 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
 
   /** ---------------- RENDER ---------------- */
 
-  const renderTreeItem = (key: string, node: PriceNode, path: string, level = 0) => {
-    const isExpanded = expandedNodes.has(path)
+  const renderTreeItem = (key: string, node: PriceNode, path: string[], level = 0) => {
+
+    const pathId = serializePath(path)
+    const isExpanded = expandedNodes.has(pathId)
+
     const hasChildren = node.children && Object.keys(node.children).length > 0
     const isLeaf = node.price !== undefined
-    const isEditingName = editingItem === path && editType === "name"
-    const isEditingPrice = editingItem === path && editType === "price"
+    const isEditingName = editingItem === pathId && editType === "name"
+    const isEditingPrice = editingItem === pathId && editType === "price"
 
     return (
-      <div key={path} className={level > 0 ? "ml-6" : ""}>
+      <div key={pathId} className={level > 0 ? "ml-6" : ""}>
         <div className="flex items-center gap-2 py-2 px-3 hover:bg-gray-50 rounded-md group">
           {hasChildren && (
             <Button
@@ -322,7 +324,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setShowAddSubcategory(path)}
+                      onClick={() => setShowAddSubcategory(pathId)}
                       className="text-green-600 hover:text-green-700"
                     >
                       + Category
@@ -330,7 +332,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setShowAddService(path)}
+                      onClick={() => setShowAddService(pathId)}
                       className="text-green-600 hover:text-green-700"
                     >
                       + Service
@@ -340,7 +342,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setDeleteModal(path)}
+                  onClick={() => setDeleteModal(pathId)}
                   className="text-red-600 hover:text-red-700"
                 >
                   Delete
@@ -353,7 +355,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
         {hasChildren && isExpanded && (
           <div className="ml-4">
             {Object.entries(node.children!).map(([childKey, childNode]) =>
-              renderTreeItem(childKey, childNode, `${path}.${childKey}`, level + 1),
+              renderTreeItem(childKey, childNode, [...path, childKey], level + 1),
             )}
           </div>
         )}
@@ -377,7 +379,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
       </div>
 
       <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-auto">
-        {Object.entries(priceList).map(([key, node]) => renderTreeItem(key, node, key))}
+        {Object.entries(priceList).map(([key, node]) => renderTreeItem(key, node, [key]))}
         {Object.keys(priceList).length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No categories found. Add a category to get started.
@@ -443,15 +445,12 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
             />
             <Label className="my-2">Service price:</Label>
             <Input
-              value={newServicePrice}
+              type="number"
+              value={newServicePrice === 0 ? "" : newServicePrice}
               placeholder="100"
               onChange={(e) => {
-                const price = Number(e.target.value);
-                if(typeof(price) === "number") {
-                  setNewServicePrice(price)
-                } else {
-                  setNewServicePrice(0)
-                }
+                const value = e.target.value;
+                setNewServicePrice(value === "" ? 0 : Number(value));
               }}
             />
             <div className="flex justify-end gap-2 mt-4">

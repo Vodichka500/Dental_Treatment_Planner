@@ -1,15 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { ServiceItem } from "@/contexts/app-context"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { ServiceSelector } from "@/components/service-selector"
 import { clsx } from "clsx"
 import { fetchPriceList, type FetchStatus } from "@/lib/utils"
-import type { PriceList, Doctor, Invoice } from "@/lib/types";
+import type { PriceList, Doctor, Invoice, ServiceItem } from "@/lib/types";
 import ImportPricelist from "@/components/import-pricelist"
 import { generateInvoiceWord } from "@/lib/generate-word";
+
 
 interface ExtendedServiceItem extends ServiceItem {
   quantity: number
@@ -78,11 +78,14 @@ export function CreateInvoice() {
 
   const toggleTooth = (tooth: string) => {
     setSelectedTeeth((prev) => {
+
+      let newTeeth: string[]
       if (prev.includes(tooth)) {
-        return prev.filter((t) => t !== tooth)
+        newTeeth = prev.filter((t) => t !== tooth)
+      } else {
+        newTeeth = [...prev, tooth]
       }
 
-      const newTeeth = [...prev, tooth]
       // Auto-update quantity based on selected teeth
       if (linkedToTeeth) {
         setServiceQuantity(newTeeth.length || 1)
@@ -212,7 +215,7 @@ export function CreateInvoice() {
         <h2 className="text-2xl font-semibold text-gray-900">Create Invoice</h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left Column - Form */}
         <div className="space-y-6">
           {/* Patient Information */}
@@ -315,7 +318,7 @@ export function CreateInvoice() {
                           {/* Upper Quadrants */}
                           <div className="text-center">
                             <div className="text-xs text-gray-500 mb-1">Upper Right</div>
-                            <div className="flex flex-wrap gap-1 justify-center">
+                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.upperRight.map((tooth) => (
                                 <button
                                   key={tooth}
@@ -336,7 +339,7 @@ export function CreateInvoice() {
 
                           <div className="text-center">
                             <div className="text-xs text-gray-500 mb-1">Upper Left</div>
-                            <div className="flex flex-wrap gap-1 justify-center">
+                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.upperLeft.map((tooth) => (
                                 <button
                                   key={tooth}
@@ -358,7 +361,7 @@ export function CreateInvoice() {
                           {/* Lower Quadrants */}
                           <div className="text-center">
                             <div className="text-xs text-gray-500 mb-1">Lower Right</div>
-                            <div className="flex flex-wrap gap-1 justify-center">
+                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.lowerRight.map((tooth) => (
                                 <button
                                   key={tooth}
@@ -379,7 +382,7 @@ export function CreateInvoice() {
 
                           <div className="text-center">
                             <div className="text-xs text-gray-500 mb-1">Lower Left</div>
-                            <div className="flex flex-wrap gap-1 justify-center">
+                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.lowerLeft.map((tooth) => (
                                 <button
                                   key={tooth}
@@ -398,7 +401,40 @@ export function CreateInvoice() {
                             </div>
                           </div>
                         </div>
-
+                        <div className="mt-5 flex gap-2 justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="bg-blue-500 text-white hover:bg-blue-600"
+                            onClick={() => {
+                              const allTeeth = [
+                                ...dentalChart.upperRight,
+                                ...dentalChart.upperLeft,
+                                ...dentalChart.lowerRight,
+                                ...dentalChart.lowerLeft,
+                              ]
+                              setSelectedTeeth(allTeeth)
+                              if (linkedToTeeth) {
+                                setServiceQuantity(allTeeth.length)
+                              }
+                            }}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTeeth([])
+                              if (linkedToTeeth) {
+                                setServiceQuantity(1)
+                              }
+                            }}
+                          >
+                            Clear
+                          </Button>
+                        </div>
                         {selectedTeeth.length > 0 && (
                           <div className="mt-2 text-sm text-gray-600">
                             Selected teeth:{" "}
