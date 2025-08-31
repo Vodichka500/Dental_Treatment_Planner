@@ -14,6 +14,7 @@ export function Navigation({ currentScreen, onScreenChange }: NavigationProps) {
     { id: 'invoices' as Screen, label: 'Invoice List', icon: '📋' },
     { id: 'create' as Screen, label: 'Create Invoice', icon: '➕' },
     { id: 'pricelist' as Screen, label: 'Price List', icon: '💰' },
+    { id: 'doctors' as Screen, label: 'Doctors', icon: '👨🏻‍⚕️' },
     { id: 'settings' as Screen, label: 'Settings', icon: '⚙️' },
   ];
 

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import type { PriceNode } from "@/lib/types"
+import { Label } from "@/components/ui/label";
 
 interface PriceListTreeProps {
   priceList: Record<string, PriceNode>
@@ -11,7 +12,7 @@ interface PriceListTreeProps {
   currency: string
 }
 
-export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreeProps) {
+export default function PriceListTree({ priceList, onUpdate, currency }: PriceListTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
@@ -24,7 +25,6 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
 
   const [newServiceName, setNewServiceName] = useState<string>("")
   const [newServicePrice, setNewServicePrice] = useState<number>(0)
-  const [newService, setNewService] = useState("")
   const [showAddService, setShowAddService] = useState<null | string>(null)
   const [deleteModal, setDeleteModal] = useState<string | null>(null)
 
@@ -65,6 +65,7 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
 
     // Получаем родителя узла
     let parentNode: any = newPriceList
+    // eslint-disable-next-line no-restricted-syntax
     for (const part of parentPath) {
       if (!parentNode[part]) return
       parentNode = parentNode[part].children
@@ -100,10 +101,11 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
   const confirmDeleteItem = () => {
     if (!deleteModal) return
     const pathParts = deleteModal.split(".")
+    console.log(pathParts)
     const newPriceList = deepClone(priceList)
 
     let current: any = newPriceList
-    for (let i = 0; i < pathParts.length - 1; i++) {
+    for (let i = 0; i < pathParts.length - 1; i += 1) {
       const key = pathParts[i]
       if (!current[key]) return
       current = current[key].children // переходим в children
@@ -140,7 +142,7 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
     let current = updatedPriceList
 
     // Проходим по пути
-    for (let i = 0; i < pathParts.length; i++) {
+    for (let i = 0; i < pathParts.length; i += 1) {
       const key = pathParts[i]
       if (!current[key]) {
         console.error(`Путь "${pathParts.slice(0, i + 1).join(" -> ")}" не найден.`)
@@ -161,24 +163,24 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
     setNewSubcategoryName("")
   }
 
-  const addService = (parentPath: string) => {
-
+  const addService = () => {
+    console.log(`999`)
     if (Number.isNaN(newServicePrice) || newServiceName === "") {
       setShowAddService(null)
       setNewServicePrice(0)
       setNewServiceName("")
-      alert("Invalid price or name")
+      // alert("Invalid price or name")
       return
     }
     const service = { name: newServiceName, price: newServicePrice }
-
+    console.log(`Service: ${service}`)
     const pathParts = showAddService!.split(".")
     const updatedPriceList = deepClone(priceList)
 
     let current = updatedPriceList
 
     // Проходим по пути
-    for (let i = 0; i < pathParts.length; i++) {
+    for (let i = 0; i < pathParts.length; i += 1) {
       const key = pathParts[i]
       if (!current[key]) {
         console.error(`Путь "${pathParts.slice(0, i + 1).join(" -> ")}" не найден.`)
@@ -248,6 +250,7 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
               <>
                 <span
                   className={`font-medium ${
+                    // eslint-disable-next-line no-nested-ternary
                     level === 0 ? "text-blue-600" : isLeaf ? "text-green-600" : "text-gray-900"
                   }`}
                 >
@@ -413,6 +416,7 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg">
             <h3>Add Subcategory</h3>
+            <Label className="my-2"></Label>
             <Input
               value={newSubcategoryName}
               onChange={(e) => setNewSubcategoryName(e.target.value)}
@@ -430,15 +434,25 @@ export function PriceListTree({ priceList, onUpdate, currency }: PriceListTreePr
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg">
             <h3>Add Service</h3>
+            <Label className="my-2">Service name:</Label>
             <Input
               value={newServiceName}
+              placeholder="Tooth removing"
               onChange={(e) => setNewServiceName(e.target.value)}
               autoFocus
             />
+            <Label className="my-2">Service price:</Label>
             <Input
               value={newServicePrice}
-              onChange={(e) => setNewServicePrice(Number(e.target.value))}
-              autoFocus
+              placeholder="100"
+              onChange={(e) => {
+                const price = Number(e.target.value);
+                if(typeof(price) === "number") {
+                  setNewServicePrice(price)
+                } else {
+                  setNewServicePrice(0)
+                }
+              }}
             />
             <div className="flex justify-end gap-2 mt-4">
               <Button onClick={() => setShowAddService(null)}>Cancel</Button>

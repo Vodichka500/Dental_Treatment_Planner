@@ -17,12 +17,14 @@ interface ServiceSelectorProps {
   onServiceSelect: (service: ServiceItem) => void;
 }
 
+// eslint-disable-next-line import/prefer-default-export
 export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorProps) {
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
 
   // Получаем текущий узел по пути
   const getNodeByPath = (path: string[]): PriceNode | null => {
     let node: any = priceList.pricelist;
+    // eslint-disable-next-line no-restricted-syntax
     for (const segment of path) {
       node = node[segment];
       if (!node) return null;
@@ -70,6 +72,7 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <span>Path:</span>
           {selectedPath.map((segment, idx) => (
+            // eslint-disable-next-line react/no-array-index-key
             <span key={idx}>
               {idx > 0 && <span className="mx-1">→</span>}
               {segment}

@@ -14,9 +14,9 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import fs from "fs";
 import { PriceList } from "@/lib/types";
+import { defaultDoctors, defaultPriceList } from "@/contexts/app-context";
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
-import { defaultPriceList } from "@/contexts/app-context";
 
 
 class AppUpdater {
@@ -59,9 +59,17 @@ async function ensureDataDir() {
       saveConfig(config);
 
       // создаём файл pricelist.json с тестовыми данными
-      const filePath = path.join(config.dataDir, "pricelist.json");
-      if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, JSON.stringify(defaultPriceList, null, 2), "utf-8");
+      const filePathPriceList = path.join(config.dataDir, "pricelist.json");
+      if (!fs.existsSync(filePathPriceList)) {
+        fs.writeFileSync(filePathPriceList, JSON.stringify(defaultPriceList, null, 2), "utf-8");
+      }
+      const filePathDoctors = path.join(config.dataDir, "doctors.json");
+      if (!fs.existsSync(filePathDoctors)) {
+        fs.writeFileSync(filePathDoctors, JSON.stringify(defaultDoctors, null, 2), "utf-8");
+      }
+      const filePathInvoicesList = path.join(config.dataDir, "invoices-list.json");
+      if (!fs.existsSync(filePathInvoicesList)) {
+        fs.writeFileSync(filePathInvoicesList,JSON.stringify([], null, 2), "utf-8");
       }
     }
   }
@@ -102,6 +110,55 @@ async function ensureDataDir() {
 //   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
 //   console.log("New pricelist saved at:", filePath);
 // });
+function sanitizeFilename(name: string) {
+  // убираем / \ : * ? " < > | и пробелы в конце
+  return name.replace(/[/\\:*?"<>|]/g, "_");
+}
+
+ipcMain.handle("save-invoice", async (_, data: { filename: string; bufferedInvoice: any }) => {
+  const invoicesDir = path.join(getConfig().dataDir, "invoices");
+
+  // создаём папку, если её нет
+  if (!fs.existsSync(invoicesDir)) {
+    fs.mkdirSync(invoicesDir, { recursive: true });
+  }
+
+  const filePath = path.join(invoicesDir, sanitizeFilename(data.filename)); // добавляем расширение
+  console.log(`FILEPATH: ${filePath}`);
+
+  fs.writeFileSync(filePath, data.bufferedInvoice);
+  console.log("New invoice saved at:", filePath);
+});
+
+ipcMain.handle("open-invoice", async  (_, data: {filename:string}) => {
+  const invoicesDir = path.join(getConfig().dataDir, "invoices");
+  // создаём папку, если её нет
+  if (!fs.existsSync(invoicesDir)) {
+    fs.mkdirSync(invoicesDir, { recursive: true });
+  }
+  const filePath = path.join(invoicesDir, sanitizeFilename(data.filename));
+  const result = await shell.openPath(filePath);
+
+  if (result) {
+    // если не пустая строка → ошибка
+    throw new Error(`Failed to open file: ${result}`);
+  }
+
+  return true;
+})
+
+ipcMain.handle("get-doctors", async () => {
+  const filePath = path.join(getConfig().dataDir, "doctors.json");
+  if (!fs.existsSync(filePath)) return null;
+  const doctors = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+  return doctors
+});
+
+ipcMain.handle("save-doctors", async (_, data) => {
+  const filePath = path.join(getConfig().dataDir, "doctors.json");
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+  console.log("New doctors list saved at:", filePath);
+});
 
 ipcMain.handle("get-pricelist", async () => {
   const filePath = path.join(getConfig().dataDir, "pricelist.json");
@@ -110,11 +167,58 @@ ipcMain.handle("get-pricelist", async () => {
   return priceList;
 });
 
-
 ipcMain.handle("save-pricelist", async (_, data) => {
   const filePath = path.join(getConfig().dataDir, "pricelist.json");
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
   console.log("New pricelist saved at:", filePath);
+});
+
+// Получение списка инвойсов
+ipcMain.handle("get-invoices-list", async () => {
+  const filePath = path.join(getConfig().dataDir, "invoices-list.json");
+  if (!fs.existsSync(filePath)) return null;
+
+  const invoicesList = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  return invoicesList;
+});
+
+// Сохранение списка инвойсов
+ipcMain.handle("save-invoices-list", async (_, data) => {
+  const filePath = path.join(getConfig().dataDir, "invoices-list.json");
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+  console.log("New invoices list saved at:", filePath);
+});
+
+ipcMain.handle("delete-invoice", async (_, { id, filename }) => {
+  const listPath = path.join(getConfig().dataDir, "invoices-list.json");
+  const invoicesDir = path.join(getConfig().dataDir, "invoices");
+  const filePath = path.join(invoicesDir, filename);
+
+  try {
+    // Удаляем файл, если он существует
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log("Deleted invoice file:", filePath);
+    }
+
+    // Читаем список
+    let invoicesList: any[] = [];
+    if (fs.existsSync(listPath)) {
+      invoicesList = JSON.parse(fs.readFileSync(listPath, "utf-8"));
+    }
+
+    // Фильтруем по id
+    const updatedList = invoicesList.filter((inv) => inv.id !== id);
+
+    // Сохраняем новый список
+    fs.writeFileSync(listPath, JSON.stringify(updatedList, null, 2), "utf-8");
+    console.log("Updated invoices list after deletion:", listPath);
+
+    return updatedList;
+  } catch (error) {
+    console.error("Error deleting invoice:", error);
+    throw error;
+  }
 });
 
 // Получить текущий путь
@@ -142,10 +246,19 @@ ipcMain.handle("change-data-dir", async () => {
   if (!result.canceled && result.filePaths.length > 0) {
     const newDir = result.filePaths[0];
     saveConfig({ dataDir: newDir });
-    const filePath = path.join(newDir, "pricelist.json");
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify(defaultPriceList, null, 2), "utf-8");
+    const filePathPriceList = path.join(newDir, "pricelist.json");
+    if (!fs.existsSync(filePathPriceList)) {
+      fs.writeFileSync(filePathPriceList, JSON.stringify(defaultPriceList, null, 2), "utf-8");
     }
+    const filePathDoctors = path.join(newDir, "doctors.json");
+    if (!fs.existsSync(filePathDoctors)) {
+      fs.writeFileSync(filePathDoctors, JSON.stringify(defaultDoctors, null, 2), "utf-8");
+    }
+    const filePathInvoicesList = path.join(newDir, "invoices-list.json");
+    if (!fs.existsSync(filePathInvoicesList)) {
+      fs.writeFileSync(filePathInvoicesList,JSON.stringify([], null, 2), "utf-8");
+    }
+
     return newDir;
   }
   return null;

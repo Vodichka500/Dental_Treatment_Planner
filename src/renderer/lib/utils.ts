@@ -7,7 +7,6 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 
-
 export type FetchStatus = "idle" | "loading" | "success" | "error";
 
 export async function fetchPriceList(

@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { PriceListTree } from "@/components/price-list-tree";
+import  PriceListTree  from "@/components/price-list-tree";
 import { PriceList } from "@/lib/types";
 import { fetchPriceList, FetchStatus } from "@/lib/utils";
 import ImportPricelist from './import-pricelist';
 
-export function PriceListEditor() {
+export default function PriceListEditor() {
   const [priceList, setPriceList] = useState<PriceList | null>();
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle");
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -175,6 +175,7 @@ export function PriceListEditor() {
             <p className="text-sm text-gray-700 mb-6">
               Importing a new JSON will <strong>overwrite your current price list</strong>.
               Make sure to{" "}
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
               <span className="underline font-extrabold cursor-pointer" onClick={handleExportJson}>export</span>
               {" "}your current price list first!
             </p>
