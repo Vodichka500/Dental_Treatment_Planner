@@ -126,7 +126,7 @@ export default function InvoiceList() {
       </div>
 
       {/* Invoice Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden">
         {editingInvoice ? (
           <EditInvoice
             invoice={editingInvoice}
