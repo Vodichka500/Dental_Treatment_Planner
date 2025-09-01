@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { InvoiceListItem } from "@/lib/types";
-import { Trash2 } from "lucide-react";
+import { Trash2, Edit } from "lucide-react";
+import EditInvoice from "@/components/edit-invoice";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,12 +19,15 @@ import {
 } from "@/components/ui/alert-dialog"
 
 
+
 export default function InvoiceList() {
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<InvoiceListItem[]>([]);
   const [dateFilter, setDateFilter] = useState("");
   const [patientFilter, setPatientFilter] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceListItem | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceListItem | null>(null)
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false)
 
 
   useEffect(() => {
@@ -48,6 +52,38 @@ export default function InvoiceList() {
     console.log("Open invoice:", filename);
     await window.electron.openInvoice({filename})
     // Здесь можно вызвать ipcRenderer.invoke("open-invoice", { filename })
+  }
+
+  const handleEditInvoice = async (invoiceListItem: InvoiceListItem) => {
+    setIsLoadingEdit(true)
+    try {
+      // Если selectedDoctor уже есть в данных списка:
+      const fullInvoice: InvoiceListItem = {
+        id: invoiceListItem.id,
+        patient: invoiceListItem.patient,
+        doctor: invoiceListItem.doctor, // Используем сохраненного доктора
+        date: new Date(invoiceListItem.date),
+        totalAmount: invoiceListItem.totalAmount,
+        services: invoiceListItem.services,
+        filename: invoiceListItem.filename
+      }
+
+      setEditingInvoice(fullInvoice)
+    } catch (error) {
+      console.error('Error loading invoice for edit:', error)
+      // Показать ошибку пользователю
+    } finally {
+      setIsLoadingEdit(false)
+    }
+  }
+  const handleEditCancel = () => {
+    setEditingInvoice(null)
+  }
+  const handleEditSaveSuccess = async () => {
+    setEditingInvoice(null)
+    window.electron.getInvoicesList()
+      .then((invoicesList) => setInvoices(invoicesList))
+      .catch((e) => {console.error(e)})
   }
 
   const handleDeleteInvoice = async () => {
@@ -91,61 +127,78 @@ export default function InvoiceList() {
 
       {/* Invoice Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-          </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-          {filteredInvoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.patient}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(invoice.date).toLocaleDateString()}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{invoice.totalAmount.toFixed(2)} BYN</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  className="  py-1 px-3 rounded-lg border-green-300 cursor-pointer"
-                  onClick={() => handleOpenInvoice(invoice.filename)}
-                >
-                  Open Invoice
-                </Button>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="text-black hover:bg-red-50 cursor-pointer"
-                      onClick={() => setSelectedInvoice(invoice)}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete invoice?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. The file{" "}
-                        <span className="font-semibold">{invoice.filename}</span> will be permanently deleted.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteInvoice} className="bg-red-600 hover:bg-red-700">
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </td>
+        {editingInvoice ? (
+          <EditInvoice
+            invoice={editingInvoice}
+            onSaveSuccess={handleEditSaveSuccess}
+            onCancel={handleEditCancel}
+          />
+        ) : (
+          <table className="w-full">
+            <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
-          ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+            {filteredInvoices.map((invoice) => (
+              <tr key={invoice.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.patient}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(invoice.date).toLocaleDateString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{invoice.totalAmount.toFixed(2)} BYN</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    className="py-1 px-3 rounded-lg border-green-300 cursor-pointer"
+                    onClick={() => handleOpenInvoice(invoice.filename)}
+                  >
+                    Open Invoice
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="py-1 px-3 rounded-lg border-blue-300 cursor-pointer"
+                    onClick={() => handleEditInvoice(invoice)}
+                  >
+                    <Edit className="w-4 h-4 mr-1" />
+                    Edit
+                  </Button>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="text-black hover:bg-red-50 cursor-pointer"
+                        onClick={() => setSelectedInvoice(invoice)}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete invoice?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. The file{" "}
+                          <span className="font-semibold">{invoice.filename}</span> will be permanently deleted.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteInvoice} className="bg-red-600 hover:bg-red-700">
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </td>
+              </tr>
+            ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {filteredInvoices.length === 0 && (

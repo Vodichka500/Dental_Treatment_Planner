@@ -19,9 +19,10 @@ export interface Invoice {
   id: string;
   patientName: string;
   selectedDoctor: any | null;
-  date: Date;
+  date: Date | string;
   totalAmount: number;
   services: any[];
+  filename?: string
 }
 
 export interface InvoiceItemService {
@@ -38,9 +39,11 @@ export interface InvoiceItemService {
 export interface  InvoiceListItem {
   id: string,
   filename: string,
-  date: Date,
+  date: Date | string,
   totalAmount: number,
-  patient: string
+  patient: string,
+  doctor: Doctor,
+  services: InvoiceItemService[]
 }
 
 export interface ServiceItem {
@@ -48,4 +51,11 @@ export interface ServiceItem {
   name: string,
   path: string[],
   price: number
+}
+
+export interface ExtendedServiceItem extends ServiceItem {
+  quantity: number
+  selectedTeeth: string[]
+  linkedToTeeth: boolean
+  comment?: string
 }

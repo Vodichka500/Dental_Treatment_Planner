@@ -5,13 +5,21 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { ServiceSelector } from "@/components/service-selector"
 import { clsx } from "clsx"
-import { fetchPriceList, type FetchStatus } from "@/lib/utils"
-import type { PriceList, Doctor, Invoice, ServiceItem, ExtendedServiceItem } from "@/lib/types";
-import ImportPricelist from "@/components/import-pricelist"
+import { PriceList, Doctor, Invoice, ServiceItem, InvoiceListItem, InvoiceItemService } from "@/lib/types";
 import { generateInvoiceWord } from "@/lib/generate-word";
 
+interface ExtendedServiceItem extends ServiceItem {
+  quantity: number
+  selectedTeeth: string[]
+  linkedToTeeth: boolean
+  comment?: string
+}
 
-
+interface EditInvoiceProps {
+  invoice: InvoiceListItem
+  onSaveSuccess: () => void
+  onCancel: () => void
+}
 
 const dentalChart = {
   upperRight: ["18", "17", "16", "15", "14", "13", "12", "11"],
@@ -20,48 +28,34 @@ const dentalChart = {
   lowerLeft: ["31", "32", "33", "34", "35", "36", "37", "38"],
 }
 
-// eslint-disable-next-line import/prefer-default-export
-export function CreateInvoice() {
-  const [priceList, setPriceList] = useState<PriceList | null>()
-  const [doctors, setDoctors ] = useState<Doctor[] | null>()
-  const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle")
-  const [fetchError, setFetchError] = useState<string | null>(null)
-
-  const [patientName, setPatientName] = useState("")
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null)
-  const [date, setDate] = useState<Date>(new Date())
-  const [selectedServices, setSelectedServices] = useState<ExtendedServiceItem[]>([])
+export default function EditInvoice({ invoice, onSaveSuccess, onCancel }: EditInvoiceProps) {
+  const [patientName, setPatientName] = useState(invoice.patient)
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(invoice.doctor)
+  const [date, setDate] = useState<Date>(new Date(invoice.date))
+  const [selectedServices, setSelectedServices] = useState<InvoiceItemService[]>(invoice.services)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [modal, setModal] = useState<{status: "hidden" | "error" | "success", filename?: string | null, errorMsg?: string}>({status: "hidden"})
+  const [isLoading, setIsLoading] = useState(false)
 
   const [serviceModal, setServiceModal] = useState(false)
-  const [pendingService, setPendingService] = useState<ServiceItem | null>(null)
+  const [pendingService, setPendingService] = useState<InvoiceItemService | null>(null)
   const [serviceQuantity, setServiceQuantity] = useState(1)
   const [selectedTeeth, setSelectedTeeth] = useState<string[]>([])
   const [linkedToTeeth, setLinkedToTeeth] = useState(true)
   const [serviceComment, setServiceComment] = useState("")
+  const [priceList, setPriceList] = useState<PriceList | null>()
+  const [doctors, setDoctors] = useState<Doctor[] | null>()
+  const [loadDataErr, setLoadDataErr] = useState<string>("")
 
   useEffect(() => {
-    fetchPriceList(setPriceList, setFetchError, setFetchStatus)
     window.electron.getDoctors()
       .then(data => setDoctors(data))
-      .catch((e) => console.error(e))
-  }, [])
+      .catch(() => setLoadDataErr("Error while fetching doctors"))
+    window.electron.getPricelist()
+      .then(data => setPriceList(data))
+      .catch(() => setLoadDataErr("Error with fetching Price List"))
+  }, [priceList, doctors]);
 
-  async function addInvoice(newInvoice: Invoice) {
-    try {
-      const bufferedInvoice = await generateInvoiceWord(newInvoice)
-      const filename = `${newInvoice.patientName}-${newInvoice.date.toISOString()}.docx`
-      await window.electron.saveInvoice({filename, bufferedInvoice})
-      return filename
-    } catch (e) {
-      console.log(e)
-      return null
-    }
-  }
-
-
-  const addService = (service: ServiceItem) => {
+  const addService = (service: InvoiceItemService) => {
     setErrorMsg(null)
     setPendingService(service)
     setServiceQuantity(1)
@@ -73,7 +67,6 @@ export function CreateInvoice() {
 
   const toggleTooth = (tooth: string) => {
     setSelectedTeeth((prev) => {
-
       let newTeeth: string[]
       if (prev.includes(tooth)) {
         newTeeth = prev.filter((t) => t !== tooth)
@@ -81,12 +74,10 @@ export function CreateInvoice() {
         newTeeth = [...prev, tooth]
       }
 
-      // Auto-update quantity based on selected teeth
       if (linkedToTeeth) {
         setServiceQuantity(newTeeth.length || 1)
       }
       return newTeeth
-
     })
   }
 
@@ -123,7 +114,7 @@ export function CreateInvoice() {
 
   const totalAmount = selectedServices.reduce((sum, service) => sum + service.price * service.quantity, 0)
 
-  const handleGenerateInvoice = async () => {
+  const handleSaveInvoice = async () => {
     if (!patientName.trim()) {
       setErrorMsg("Please enter patient name");
       return;
@@ -137,8 +128,10 @@ export function CreateInvoice() {
       return;
     }
 
-    const newInvoice = {
-      id: `inv-${Date.now()}`,
+    setIsLoading(true);
+
+    const updatedInvoice: Invoice = {
+      ...invoice,
       patientName: patientName.trim(),
       selectedDoctor,
       date,
@@ -146,70 +139,67 @@ export function CreateInvoice() {
       services: selectedServices,
     };
 
-    const addToInvoiceList = async (filename: string) => {
-      const currentInvoices = (await window.electron.getInvoicesList()) || [];
-      currentInvoices.push({
-        id: newInvoice.id,
-        patient: newInvoice.patientName,
-        filename,
-        date,
-        totalAmount,
-        doctor: selectedDoctor,
-        services: selectedServices
-      });
-      await window.electron.saveInvoicesList(currentInvoices);
-    };
+    if (!invoice.filename) return
 
     try {
-      const filename = await addInvoice(newInvoice);
-      setModal({ status: "success", filename });
-      if (filename) await addToInvoiceList(filename);
+      // Генерируем новый документ
+      const bufferedInvoice = await generateInvoiceWord(updatedInvoice);
+
+      // Сохраняем в тот же файл
+      await window.electron.saveInvoice({
+        filename: invoice.filename, // Используем существующее имя файла
+        bufferedInvoice
+      });
+
+      // Обновляем список invoice
+      const currentInvoices = (await window.electron.getInvoicesList()) || [];
+      const invoiceIndex = currentInvoices.findIndex(inv => inv.id === invoice.id);
+
+      if (invoiceIndex !== -1) {
+        currentInvoices[invoiceIndex] = {
+          id: invoice.id,
+          patient: updatedInvoice.patientName,
+          filename: invoice.filename, // Оставляем то же имя файла
+          doctor: selectedDoctor,
+          date,
+          totalAmount,
+          services: selectedServices
+        };
+        await window.electron.saveInvoicesList(currentInvoices);
+      }
+
+      onSaveSuccess();
     } catch (error) {
       const formattedError = error instanceof Error ? error.message : String(error);
-      setModal({ status: "error", errorMsg: formattedError });
+      setErrorMsg(`Failed to save invoice: ${formattedError}`);
     } finally {
-      setPatientName("");
-      setSelectedDoctor(null);
-      setDate(new Date());
-      setSelectedServices([]);
+      setIsLoading(false);
     }
   };
 
-
-  const handleOpenFile = async (filename: string | null | undefined) => {
-    // Add your file opening logic here
-    console.log(`Opening file...${  filename}`)
-    if (filename){
-      await window.electron.openInvoice({filename})
-    }
-    setModal({ status: "hidden" })
-  }
-
-  if (fetchStatus === "loading" || fetchStatus === "idle") {
-    return <div>Loading pricelist...</div>
-  }
-
-  if (fetchStatus === "error") {
-    return (
-      <div className="flex flex-col">
-        <div className="text-red-500">Error: {fetchError}</div>
-        <ImportPricelist />
-      </div>
-    )
-  }
-
-  if (!priceList) {
-    return <div>No pricelist available.</div>
-  }
-
-  if (!doctors || doctors.length === 0) {
-    return <div>There is no doctors available. Add at least on in &quot;Doctors&quot; section</div>
-  }
+  if (loadDataErr !== "" || !doctors || !priceList) { return (
+    <div>
+      <p className="text-xl">Something went wrong</p>
+      <p className="text-lg text-red-500">Error message: {loadDataErr}</p>
+    </div>
+  ) }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold text-gray-900">Create Invoice</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">Edit Invoice</h2>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveInvoice}
+            disabled={isLoading}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {isLoading ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -259,7 +249,12 @@ export function CreateInvoice() {
               <div>
                 {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <Input type="date" value={date.toISOString().split("T")[0]} onChange={(e) => setDate(new Date(e.target.value))} className="w-full" />
+                <Input
+                  type="date"
+                  value={date.toISOString().split("T")[0]}
+                  onChange={(e) => setDate(new Date(e.target.value))}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
@@ -548,74 +543,9 @@ export function CreateInvoice() {
             )}
           </div>
 
-          {/* Generate Invoice Button */}
-          <div className="flex gap-4">
-            <Button
-              onClick={handleGenerateInvoice}
-              className={clsx(
-                "flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer",
-                (!patientName.trim() || !selectedDoctor || selectedServices.length === 0) && "bg-gray-300",
-              )}
-            >
-              Generate PDF
-            </Button>
-          </div>
           {errorMsg && <div className="text-sm mt-2 text-red-500 bg-red-50 p-2 rounded">{errorMsg}</div>}
         </div>
       </div>
-      {(modal.status === "success" || modal.status === "error") && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-          {
-            modal.status === "success" ? (
-              <div className="bg-white rounded-lg shadow-lg border p-6 max-w-sm w-full mx-4 text-center">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Success</h3>
-                <p className="text-gray-600 text-sm mb-6">File ready</p>
-
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm" onClick={() => handleOpenFile(modal.filename)}>
-                      Open File
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="text-sm bg-transparent"
-                      onClick={() => setModal({ status: "hidden" })}
-                    >
-                      Close
-                    </Button>
-                  </div>
-
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-lg border p-6 max-w-sm w-full mx-4 text-center">
-                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Error</h3>
-                <p className="text-red-600 text-sm mb-2">{modal.errorMsg || "Something went wrong"}</p>
-                <p className="text-gray-600 text-sm mb-6">Please try again</p>
-                <Button
-                  className="w-full bg-red-600 hover:bg-red-700 text-white text-sm"
-                  onClick={() => setModal({ status: "hidden" })}
-                >
-                  Try Again
-                </Button>
-              </div>
-            )
-          }
-        </div>
-      )}
     </div>
   )
 }
-
-
-

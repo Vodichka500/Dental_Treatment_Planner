@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import {
   Select,
   SelectContent,
@@ -9,27 +10,70 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import type {PriceList, PriceNode, ServiceItem } from '@/lib/types'
+import type { PriceList, PriceNode, ServiceItem } from '@/lib/types';
 
 interface ServiceSelectorProps {
   priceList: PriceList;
   onServiceSelect: (service: ServiceItem) => void;
 }
 
-// eslint-disable-next-line import/prefer-default-export
 export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorProps) {
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Получаем текущий узел по пути
+  // ========================
+  // 🔍 Рекурсивный обход для поиска
+  // ========================
+  const flattenServices = (
+    node: Record<string, PriceNode>,
+    path: string[] = []
+  ): ServiceItem[] => {
+    let results: ServiceItem[] = [];
+
+    Object.entries(node).forEach(([key, child]) => {
+      const newPath = [...path, child.name];
+      if (child.price !== undefined) {
+        results.push({
+          id: '',
+          path: newPath,
+          name: child.name,
+          price: child.price,
+        });
+      }
+      if (child.children) {
+        results = results.concat(flattenServices(child.children, newPath));
+      }
+    });
+
+    return results;
+  };
+
+  const allServices = useMemo(
+    () => flattenServices(priceList.pricelist),
+    [priceList]
+  );
+
+  // ========================
+  // 🔍 Фильтрация по поиску
+  // ========================
+  const filteredServices = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = searchQuery.toLowerCase();
+    return allServices.filter((service) =>
+      service.path.join(' ').toLowerCase().includes(query)
+    );
+  }, [searchQuery, allServices]);
+
+  // ========================
+  // Навигация по дереву (как раньше)
+  // ========================
   const getNodeByPath = (path: string[]): PriceNode | null => {
-    let node: any = priceList.pricelist;
-    // eslint-disable-next-line no-restricted-syntax
-    for (const segment of path) {
-      node = node[segment];
+    return path.reduce<any>((node, segment) => {
       if (!node) return null;
-      node = node.children ?? node;
-    }
-    return node;
+      const next = node[segment];
+      if (!next) return null;
+      return next.children ?? next;
+    }, priceList.pricelist);
   };
 
   const currentNode = getNodeByPath(selectedPath);
@@ -46,7 +90,6 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
     const node = getNodeByPath(newPath);
 
     if (node && node.price !== undefined) {
-      // Выбран конечный сервис
       onServiceSelect({
         id: '',
         path: newPath,
@@ -55,13 +98,11 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
       });
       setSelectedPath([]);
     } else {
-      // Переход к следующему уровню
       setSelectedPath(newPath);
     }
   };
 
-  const handleBack = () => setSelectedPath(prev => prev.slice(0, -1));
-
+  const handleBack = () => setSelectedPath((prev) => prev.slice(0, -1));
   const canGoBack = selectedPath.length > 0;
 
   return (
@@ -80,15 +121,49 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
         </div>
       )}
 
+      {/* 🔍 Поисковый инпут */}
+      <Input
+        placeholder="Поиск услуги..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+
+      {/* Результаты поиска */}
+      {searchQuery && filteredServices.length > 0 && (
+        <div className="border rounded-md p-2 max-h-60 overflow-y-auto space-y-1">
+          {filteredServices.map((service) => (
+            <button
+              type="button"
+              key={`${service.id}`}
+              onClick={() => {
+                onServiceSelect(service);
+                setSearchQuery('');
+              }}
+              className="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded"
+            >
+              <span className="font-medium">{service.path.join(' → ')}</span>{' '}
+              <span className="ml-2 text-sm text-blue-600">
+                {service.price.toFixed(2)} {priceList.currency}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex gap-2">
         {canGoBack && (
-          <Button variant="outline" onClick={handleBack} className="mb-4 bg-transparent">
+          <Button
+            variant="outline"
+            onClick={handleBack}
+            className="mb-4 bg-transparent"
+          >
             ← Back
           </Button>
         )}
       </div>
 
-      {currentOptions.length > 0 && (
+      {/* Навигация по категориям */}
+      {!searchQuery && currentOptions.length > 0 && (
         <div>
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="block text-sm font-medium text-gray-700 mb-1">

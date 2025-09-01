@@ -33,9 +33,17 @@ export async function generateInvoiceWord(invoice: Invoice) {
     procedures.push(makeProcedureLine(idx + 1, srv.path, srv.selectedTeeth));
 
     if (srv.comment) {
-      procedures.push(...spacing1)
-      procedures.push(new Paragraph(`Комментарий врача:`));
-      procedures.push(new Paragraph(srv.comment))
+      procedures.push(...spacing1);
+      procedures.push(new Paragraph("Комментарий врача:"));
+
+      // Разбиваем по переносам
+      const lines = srv.comment.split("\n");
+      const runs = lines.flatMap((line, idx) => {
+        if (idx === 0) return [new TextRun(line)];
+        return [new TextRun({ text: line, break: 1 })];
+      });
+
+      procedures.push(new Paragraph({ children: runs }));
     }
 
     if (srv.linkedToTeeth && srv.selectedTeeth?.length > 0) {
