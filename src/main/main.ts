@@ -116,18 +116,23 @@ function sanitizeFilename(name: string) {
 }
 
 ipcMain.handle("save-invoice", async (_, data: { filename: string; bufferedInvoice: any }) => {
-  const invoicesDir = path.join(getConfig().dataDir, "invoices");
+  try {
+    const invoicesDir = path.join(getConfig().dataDir, "invoices");
 
-  // создаём папку, если её нет
-  if (!fs.existsSync(invoicesDir)) {
-    fs.mkdirSync(invoicesDir, { recursive: true });
+    // создаём папку, если её нет
+    if (!fs.existsSync(invoicesDir)) {
+      await fs.mkdirSync(invoicesDir, { recursive: true });
+    }
+
+    const filePath = path.join(invoicesDir, sanitizeFilename(data.filename)); // добавляем расширение
+    console.log(`FILEPATH: ${filePath}`);
+
+    await fs.writeFileSync(filePath, data.bufferedInvoice);
+    console.log("New invoice saved at:", filePath);
+  } catch (err) {
+    console.error("Failed to save invoice:", err);
+    return { success: false, error: err };
   }
-
-  const filePath = path.join(invoicesDir, sanitizeFilename(data.filename)); // добавляем расширение
-  console.log(`FILEPATH: ${filePath}`);
-
-  fs.writeFileSync(filePath, data.bufferedInvoice);
-  console.log("New invoice saved at:", filePath);
 });
 
 ipcMain.handle("open-invoice", async  (_, data: {filename:string}) => {
@@ -354,12 +359,11 @@ app.on('window-all-closed', () => {
 
 app
   .whenReady()
-  .then(() => {
-    ensureDataDir();
-    createWindow();
+  .then(async () => {
+    // дождёмся выбора/создания dataDir перед созданием окна
+    await ensureDataDir();
+    await createWindow();
     app.on('activate', () => {
-      // On macOS it's common to re-create a window in the app when the
-      // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
   })

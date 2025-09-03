@@ -73,7 +73,6 @@ export default function EditInvoice({ invoice, onSaveSuccess, onCancel }: EditIn
       } else {
         newTeeth = [...prev, tooth]
       }
-
       if (linkedToTeeth) {
         setServiceQuantity(newTeeth.length || 1)
       }
@@ -143,17 +142,22 @@ export default function EditInvoice({ invoice, onSaveSuccess, onCancel }: EditIn
 
     try {
       // Генерируем новый документ
+      console.time("generate");
       const bufferedInvoice = await generateInvoiceWord(updatedInvoice);
+      console.timeEnd("generate");
 
-      // Сохраняем в тот же файл
+      console.time("saveInvoice");
       await window.electron.saveInvoice({
         filename: invoice.filename, // Используем существующее имя файла
         bufferedInvoice
       });
+      console.timeEnd("saveInvoice");
 
-      // Обновляем список invoice
+
+      console.time("updateList");
       const currentInvoices = (await window.electron.getInvoicesList()) || [];
       const invoiceIndex = currentInvoices.findIndex(inv => inv.id === invoice.id);
+      console.timeEnd("updateList");
 
       if (invoiceIndex !== -1) {
         currentInvoices[invoiceIndex] = {
