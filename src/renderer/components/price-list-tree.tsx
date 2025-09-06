@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import type { PriceNode } from "@/lib/types"
 import { Label } from "@/components/ui/label";
+import ColorPicker from "@/components/color-picker";
+import { clsx } from "clsx";
 
 interface PriceListTreeProps {
   priceList: Record<string, PriceNode>
@@ -32,6 +34,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
   const [newServicePrice, setNewServicePrice] = useState<number>(0)
   const [showAddService, setShowAddService] = useState<null | string>(null)
   const [deleteModal, setDeleteModal] = useState<string | null>(null)
+  const [editColorPath, setEditColorPath] = useState<string | null>(null)
 
 
   /** ---------------- HELPERS ---------------- */
@@ -201,6 +204,33 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
     setNewServiceName("")
   }
 
+  const editColor = (color: string | null) => {
+    if(!editColorPath) return;
+    const pathParts = deserializePath(editColorPath); // 🔥
+    const newPriceList = deepClone(priceList);
+
+    let current: any = newPriceList;
+    for (let i = 0; i < pathParts.length - 1; i += 1) {
+      const key = pathParts[i];
+      if (!current[key]) return;
+      current = current[key].children; // переходим в children
+    }
+
+    const nodeKey = pathParts[pathParts.length - 1];
+    if (!current[nodeKey]) return;
+
+    if (color !== null) {
+      // добавляем/обновляем поле color
+      current[nodeKey].color = color;
+    } else {
+      // удаляем поле color
+      delete current[nodeKey].color;
+    }
+
+    onUpdate(newPriceList);
+    setEditColorPath(null);
+  };
+
   /** ---------------- RENDER ---------------- */
 
   const renderTreeItem = (key: string, node: PriceNode, path: string[], level = 0) => {
@@ -251,12 +281,16 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
             ) : (
               <>
                 <span
-                  className={`font-medium ${
+                  className={`font-medium flex gap-3 items-center ${
                     // eslint-disable-next-line no-nested-ternary
                     level === 0 ? "text-blue-600" : isLeaf ? "text-green-600" : "text-gray-900"
                   }`}
                 >
                   {node.name}
+                  <div
+                    className="w-4 h-4 rounded-full inline-block"
+                    style={{ backgroundColor: node.color || "transparent" }}
+                  />
                 </span>
                 {isLeaf && (
                   <>
@@ -309,6 +343,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                 >
                   Rename
                 </Button>
+
                 {isLeaf && (
                   <Button
                     size="sm"
@@ -321,6 +356,11 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                 )}
                 {!isLeaf && (
                   <>
+                    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+                    <div onClick={() => setEditColorPath(pathId)}>
+                      <ColorPicker editColor={editColor}/>
+                    </div>
+
                     <Button
                       size="sm"
                       variant="ghost"

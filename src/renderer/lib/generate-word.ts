@@ -11,121 +11,10 @@ import {
   ShadingType,
   AlignmentType, ImageRun
 } from "docx";
+import { Invoice, InvoiceItemService, InvoiceListItem } from "@/lib/types";
 import logoImagePath from "../../../assets/logo.jpg";
-import { Invoice, InvoiceItemService } from "@/lib/types";
 
-export async function generateInvoiceWord(invoice: Invoice) {
-
-  const response = await fetch(logoImagePath);
-  const arrayBuffer = await response.arrayBuffer();
-  const bufferedImage = new Uint8Array(arrayBuffer);
-
-  const header = getHeader(bufferedImage, "jpg", `${invoice.selectedDoctor.name} - ${invoice.selectedDoctor.specialization}` , invoice.patientName, invoice.date)
-  const footer = getFooter()
-  //const table = createTeethTable([12, 43]);
-
-  const spacing1 = Array.from({ length: 1 }, () => new Paragraph(""));
-  const spacing2 = Array.from({ length: 2 }, () => new Paragraph(""));
-  const spacing3 = Array.from({ length: 3 }, () => new Paragraph(""));
-
-  const procedures: any[] = [];
-  invoice.services.forEach((srv: InvoiceItemService, idx: number) => {
-    procedures.push(makeProcedureLine(idx + 1, srv.path, srv.selectedTeeth));
-
-    if (srv.comment) {
-      procedures.push(...spacing1);
-      procedures.push(new Paragraph("Комментарий врача:"));
-
-      // Разбиваем по переносам
-      const lines = srv.comment.split("\n");
-      const runs = lines.flatMap((line, idx) => {
-        if (idx === 0) return [new TextRun(line)];
-        return [new TextRun({ text: line, break: 1 })];
-      });
-
-      procedures.push(new Paragraph({ children: runs }));
-    }
-
-    if (srv.linkedToTeeth && srv.selectedTeeth?.length > 0) {
-      const teethNums = srv.selectedTeeth.map((n: string) => Number(n));
-      procedures.push(...spacing2)
-      procedures.push(createTeethTable(teethNums));
-    }
-
-    procedures.push(...spacing1)
-    procedures.push(
-      makePriceLine(srv.price, srv.quantity, "BYN")
-    );
-    procedures.push(...spacing2);
-  });
-
-  // Итоговая сумма
-  const totalLine = new Paragraph({
-    children: [
-      new TextRun({
-        text: `ИТОГО: ${invoice.totalAmount} BYN`,
-        bold: true,
-        size: 28,
-      }),
-    ],
-    alignment: "right",
-  });
-
-  const doc = new Document({
-    styles: {
-      default: {
-        document: {
-          run: {
-            font: "Aptos"
-          }
-        }
-      }
-    },
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: {
-              top: 720,    // 720 = 0.5 inch = ~1.27 см
-              right: 720,
-              bottom: 720,
-              left: 720,
-            },
-
-          }
-        },
-        children: [
-          header,
-          ...spacing3,
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "ПРЕДВАРИТЕЛЬНЫЙ ПЛАН ЛЕЧЕНИЯ",
-                bold: true,
-                size: 24,
-              }),
-            ],
-            alignment: "center",
-          }),
-          ...spacing2,
-          ...procedures,
-          ...spacing3,
-          totalLine,
-          ...spacing3,
-          ...footer
-        ],
-      },
-    ],
-  });
-
-  // Браузерный вариант:
-  const blob = await Packer.toBlob(doc);
-  const arrayBuf = await blob.arrayBuffer();
-  return new Uint8Array(arrayBuf); // передаём в main process для сохранения
-
-}
-
-function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", doctor: string, pacient: string, date: Date ) {
+function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", doctor: string, pacient: string, date: Date | string ) {
 
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE }, // на всю ширину
@@ -145,7 +34,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
         children: [
           new TableCell({
             width: { size: 60, type: WidthType.PERCENTAGE },
-            children: [new Paragraph(`Дата: ${date.toLocaleDateString()}`)],
+            children: [new Paragraph(`Дата: ${(new Date(date)).toLocaleDateString() }`)],
             borders: {bottom: {size: 1, style: "dotted"}},
           }),
           new TableCell({
@@ -327,7 +216,6 @@ function createTeethTable(highlighted: number[] = []) {
   });
 }
 
-
 export function getFooter(): Paragraph[] {
   return [
     new Paragraph({
@@ -360,4 +248,116 @@ export function getFooter(): Paragraph[] {
       alignment: AlignmentType.LEFT,
     }),
   ];
+}
+
+export async function generateInvoiceWord(invoice: InvoiceListItem) {
+
+  const response = await fetch(logoImagePath);
+  const arrayBuffer = await response.arrayBuffer();
+  const bufferedImage = new Uint8Array(arrayBuffer);
+
+  const header = getHeader(bufferedImage, "jpg", `${invoice.doctor.name} - ${invoice.doctor.specialization}` , invoice.patient, invoice.date)
+  const footer = getFooter()
+
+  const spacing1 = Array.from({ length: 1 }, () => new Paragraph(""));
+  const spacing2 = Array.from({ length: 2 }, () => new Paragraph(""));
+  const spacing3 = Array.from({ length: 3 }, () => new Paragraph(""));
+  console.log("Preparing to create doc: OK")
+  const procedures: any[] = [];
+  invoice.services.forEach((srv: InvoiceItemService, idx: number) => {
+    procedures.push(makeProcedureLine(idx + 1, srv.path, srv.selectedTeeth));
+
+    if (srv.comment) {
+      procedures.push(...spacing1);
+      procedures.push(new Paragraph("Комментарий врача:"));
+
+      // Разбиваем по переносам
+      const lines = srv.comment.split("\n");
+      const runs = lines.flatMap((line, i) => {
+        if (i === 0) return [new TextRun(line)];
+        return [new TextRun({ text: line, break: 1 })];
+      });
+
+      procedures.push(new Paragraph({ children: runs }));
+    }
+
+    if (srv.linkedToTeeth && srv.selectedTeeth?.length > 0) {
+      const teethNums = srv.selectedTeeth.map((n: string) => Number(n));
+      procedures.push(...spacing2)
+      procedures.push(createTeethTable(teethNums));
+    }
+
+    procedures.push(...spacing1)
+    procedures.push(
+      makePriceLine(srv.price, srv.quantity, "BYN")
+    );
+    procedures.push(...spacing2);
+  });
+
+  // Итоговая сумма
+  const totalLine = new Paragraph({
+    children: [
+      new TextRun({
+        text: `ИТОГО: ${invoice.totalAmount} BYN`,
+        bold: true,
+        size: 28,
+      }),
+    ],
+    alignment: "right",
+  });
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: "Aptos"
+          }
+        }
+      }
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 720,    // 720 = 0.5 inch = ~1.27 см
+              right: 720,
+              bottom: 720,
+              left: 720,
+            },
+
+          }
+        },
+        children: [
+          header,
+          ...spacing3,
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "ПРЕДВАРИТЕЛЬНЫЙ ПЛАН ЛЕЧЕНИЯ",
+                bold: true,
+                size: 24,
+              }),
+            ],
+            alignment: "center",
+          }),
+          ...spacing2,
+          ...procedures,
+          ...spacing3,
+          totalLine,
+          ...spacing3,
+          ...footer
+        ],
+      },
+    ],
+  });
+  console.log("Create doc: OK")
+  // Браузерный вариант:
+  const blob = await Packer.toBlob(doc);
+  const arrayBuf = await blob.arrayBuffer();
+  const buffer = new Uint8Array(arrayBuf);
+  console.log("Create buffer: OK")
+  return buffer// передаём в main process для сохранения
+
 }

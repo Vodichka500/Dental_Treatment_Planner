@@ -1,6 +1,7 @@
 export interface PriceNode {
   name: string;
   price?: number; // Only leaf nodes have prices
+  color?: string;
   children?: Record<string, PriceNode>; // Child nodes
 }
 
@@ -34,6 +35,7 @@ export interface InvoiceItemService {
   selectedTeeth: string[];
   comment?: string
   linkedToTeeth: Boolean;
+  color?: string;
 }
 
 export interface  InvoiceListItem {
@@ -50,12 +52,14 @@ export interface ServiceItem {
   id: string,
   name: string,
   path: string[],
-  price: number
+  price: number,
+  color?: string
 }
 
 export interface ExtendedServiceItem extends ServiceItem {
   quantity: number
   selectedTeeth: string[]
   linkedToTeeth: boolean
-  comment?: string
+  comment?: string,
+  color?: string;
 }

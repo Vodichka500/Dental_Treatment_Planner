@@ -1,14 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { ServiceSelector } from "@/components/service-selector"
 import { clsx } from "clsx"
 import { fetchPriceList, type FetchStatus } from "@/lib/utils"
-import type { PriceList, Doctor, Invoice, ServiceItem, ExtendedServiceItem } from "@/lib/types";
+import type { PriceList, Doctor, ServiceItem, ExtendedServiceItem, InvoiceListItem } from "@/lib/types";
 import ImportPricelist from "@/components/import-pricelist"
 import { generateInvoiceWord } from "@/lib/generate-word";
+import StaticToothSchema from "@/components/static-tooth-schema";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/Select";
 
 
 
@@ -20,8 +22,25 @@ const dentalChart = {
   lowerLeft: ["31", "32", "33", "34", "35", "36", "37", "38"],
 }
 
+type CreateInvoiceProps = {
+  // eslint-disable-next-line react/require-default-props
+  isEditing?: boolean,
+  // eslint-disable-next-line react/require-default-props
+  setIsEditing?: React.Dispatch<React.SetStateAction<boolean>>,
+  // eslint-disable-next-line react/require-default-props
+  editingInvoice?: InvoiceListItem,
+  // eslint-disable-next-line react/require-default-props
+  setInvoiceListInvoices?: React.Dispatch<React.SetStateAction<InvoiceListItem[]>>,
+}
+
+
 // eslint-disable-next-line import/prefer-default-export
-export function CreateInvoice() {
+export function CreateInvoice({
+                                isEditing,
+                                setIsEditing,
+                                editingInvoice,
+                                setInvoiceListInvoices}
+                              : CreateInvoiceProps) {
   const [priceList, setPriceList] = useState<PriceList | null>()
   const [doctors, setDoctors ] = useState<Doctor[] | null>()
   const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle")
@@ -46,12 +65,22 @@ export function CreateInvoice() {
     window.electron.getDoctors()
       .then(data => setDoctors(data))
       .catch((e) => console.error(e))
+
   }, [])
 
-  async function addInvoice(newInvoice: Invoice) {
+  useEffect(() => {
+    if(editingInvoice){
+      setPatientName(editingInvoice.patient)
+      setSelectedDoctor(editingInvoice.doctor)
+      setDate(new Date(editingInvoice.date))
+      setSelectedServices(editingInvoice.services)
+    }
+  }, [editingInvoice]);
+
+  async function addInvoice(newInvoice: InvoiceListItem) {
     try {
       const bufferedInvoice = await generateInvoiceWord(newInvoice)
-      const filename = `${newInvoice.patientName}-${newInvoice.date.toISOString()}.docx`
+      const filename = `${newInvoice.patient}-${(new Date(newInvoice.date)).toISOString()}.docx`
       await window.electron.saveInvoice({filename, bufferedInvoice})
       return filename
     } catch (e) {
@@ -60,6 +89,15 @@ export function CreateInvoice() {
     }
   }
 
+  function handleCancelEditing(){
+    setPatientName("");
+    setSelectedDoctor(null);
+    setDate(new Date());
+    setSelectedServices([]);
+    if (setIsEditing) {
+      setIsEditing(false);
+    }
+  }
 
   const addService = (service: ServiceItem) => {
     setErrorMsg(null)
@@ -101,6 +139,7 @@ export function CreateInvoice() {
       linkedToTeeth,
       comment: serviceComment.trim() || undefined,
     }
+    console.log(newService)
 
     setSelectedServices((prev) => [...prev, newService])
     setServiceModal(false)
@@ -137,26 +176,36 @@ export function CreateInvoice() {
       return;
     }
 
-    const newInvoice = {
+    if(isEditing && editingInvoice){
+      const invoicesListItemId = editingInvoice.id
+      const filename = editingInvoice.filename
+      await window.electron.deleteInvoice(invoicesListItemId, filename);
+    }
+
+    const newInvoice: InvoiceListItem = {
       id: `inv-${Date.now()}`,
-      patientName: patientName.trim(),
-      selectedDoctor,
+      patient: patientName.trim(),
+      doctor: selectedDoctor,
       date,
       totalAmount,
       services: selectedServices,
+      filename: ""
     };
 
     const addToInvoiceList = async (filename: string) => {
       const currentInvoices = (await window.electron.getInvoicesList()) || [];
       currentInvoices.push({
         id: newInvoice.id,
-        patient: newInvoice.patientName,
+        patient: newInvoice.patient,
         filename,
         date,
         totalAmount,
         doctor: selectedDoctor,
         services: selectedServices
       });
+      if (setInvoiceListInvoices) {
+        setInvoiceListInvoices(currentInvoices);
+      }
       await window.electron.saveInvoicesList(currentInvoices);
     };
 
@@ -182,7 +231,16 @@ export function CreateInvoice() {
     if (filename){
       await window.electron.openInvoice({filename})
     }
+    if(setIsEditing){
+      setIsEditing(false)
+    }
     setModal({ status: "hidden" })
+  }
+  const handleCloseModal = ()=> {
+    setModal({status: "hidden"})
+    if(setIsEditing){
+      setIsEditing(false)
+    }
   }
 
   if (fetchStatus === "loading" || fetchStatus === "idle") {
@@ -218,7 +276,7 @@ export function CreateInvoice() {
           {/* Patient Information */}
           <div className="bg-white p-6 rounded-lg border border-gray-200">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Information</h3>
-            <div className="space-y-4">
+            <div className="flex gap-3 items-center flex-wrap">
               <div>
                 {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name</label>
@@ -237,23 +295,26 @@ export function CreateInvoice() {
               <div>
                 {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label htmlFor="doctor-select" className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
-                <select
-                  id="doctor-select"
+
+                <Select
                   value={selectedDoctor?.id || ""}
-                  onChange={(e) => {
-                    const doctor = doctors.find((d) => d.id === e.target.value) || null
-                    setSelectedDoctor(doctor)
-                    setErrorMsg(null)
+                  onValueChange={(value) => {
+                    const doctor = doctors.find((d) => d.id === value) || null;
+                    setSelectedDoctor(doctor);
+                    setErrorMsg(null);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">Select a doctor...</option>
-                  {doctors.map((doctor) => (
-                    <option key={doctor.id} value={doctor.id}>
-                      {doctor.name} - {doctor.specialization}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a doctor..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {doctors.map((doctor) => (
+                      <SelectItem key={doctor.id} value={doctor.id}>
+                        {doctor.name} - {doctor.specialization}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -263,6 +324,9 @@ export function CreateInvoice() {
               </div>
             </div>
           </div>
+
+          <h2 className="text-xl font-medium text-gray-900 mb-4">Tooth schema</h2>
+          <StaticToothSchema services={selectedServices}/>
 
           {/* Service Selector */}
           <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -550,15 +614,37 @@ export function CreateInvoice() {
 
           {/* Generate Invoice Button */}
           <div className="flex gap-4">
-            <Button
-              onClick={handleGenerateInvoice}
-              className={clsx(
-                "flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer",
-                (!patientName.trim() || !selectedDoctor || selectedServices.length === 0) && "bg-gray-300",
-              )}
-            >
-              Generate PDF
-            </Button>
+            {
+              isEditing ? (
+                <>
+                  <Button
+                    onClick={handleCancelEditing}
+                    className="flex-1 bg-red-400 hover:bg-red-700 cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleGenerateInvoice}
+                    className={clsx(
+                      "flex-1 bg-green-600 hover:bg-green-700 cursor-pointer",
+                      (!patientName.trim() || !selectedDoctor || selectedServices.length === 0) && "bg-gray-300",
+                    )}
+                  >
+                    Save Changes
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={handleGenerateInvoice}
+                  className={clsx(
+                    "flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer",
+                    (!patientName.trim() || !selectedDoctor || selectedServices.length === 0) && "bg-gray-300",
+                  )}
+                >
+                  Generate PDF
+                </Button>
+              )
+            }
           </div>
           {errorMsg && <div className="text-sm mt-2 text-red-500 bg-red-50 p-2 rounded">{errorMsg}</div>}
         </div>
@@ -584,7 +670,7 @@ export function CreateInvoice() {
                     <Button
                       variant="outline"
                       className="text-sm bg-transparent"
-                      onClick={() => setModal({ status: "hidden" })}
+                      onClick={handleCloseModal}
                     >
                       Close
                     </Button>

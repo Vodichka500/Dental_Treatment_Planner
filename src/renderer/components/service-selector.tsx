@@ -85,21 +85,52 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
     }))
     : [];
 
+  const getColorForService = (path: string[], node: Record<string, PriceNode>): string | undefined => {
+    let selectedNode: any = node;
+    let color: string | undefined;
+
+    for (const segment of path) {
+      selectedNode = selectedNode[segment];
+      if (!selectedNode) break;
+      console.log(`${selectedNode.name  }: ${  selectedNode.color}`)
+      if (selectedNode.color) color = selectedNode.color; // запоминаем последний найденный цвет
+      selectedNode = selectedNode.children ?? {};
+    }
+
+    return color;
+  };
+
   const handleSelection = (key: string) => {
     const newPath = [...selectedPath, key];
     const node = getNodeByPath(newPath);
 
     if (node && node.price !== undefined) {
+      const color = getColorForService(newPath, priceList.pricelist)
       onServiceSelect({
         id: '',
         path: newPath,
         name: node.name,
         price: node.price,
+        color
       });
       setSelectedPath([]);
     } else {
       setSelectedPath(newPath);
     }
+  };
+
+  const handleSearchSelection = (service: ServiceItem) => {
+    // Находим цвет для выбранной услуги
+    const color = getColorForService(service.path, priceList.pricelist);
+
+    // Отправляем объект с цветом
+    onServiceSelect({
+      ...service,
+      color, // ✅ добавляем цвет
+    });
+
+    // Сбрасываем поиск
+    setSearchQuery('');
   };
 
   const handleBack = () => setSelectedPath((prev) => prev.slice(0, -1));
@@ -130,13 +161,13 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
 
       {/* Результаты поиска */}
       {searchQuery && filteredServices.length > 0 && (
-        <div className="border rounded-md p-2 max-h-60 overflow-y-auto space-y-1">
+        <div className="border rounded-md p-2 max-h-60 overflow-y-auto space-y-1 overflow-auto">
           {filteredServices.map((service) => (
             <button
               type="button"
               key={`${service.id}`}
               onClick={() => {
-                onServiceSelect(service);
+                handleSearchSelection(service)
                 setSearchQuery('');
               }}
               className="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded"

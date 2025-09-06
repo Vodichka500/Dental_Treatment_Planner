@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { InvoiceListItem } from "@/lib/types";
 import { Trash2, Edit } from "lucide-react";
-import EditInvoice from "@/components/edit-invoice";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { CreateInvoice } from "@/components/create-invoice";
 
 
 
@@ -26,8 +26,9 @@ export default function InvoiceList() {
   const [dateFilter, setDateFilter] = useState("");
   const [patientFilter, setPatientFilter] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceListItem | null>(null);
-  const [editingInvoice, setEditingInvoice] = useState<InvoiceListItem | null>(null)
-  const [isLoadingEdit, setIsLoadingEdit] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceListItem>()
+
 
 
   useEffect(() => {
@@ -55,36 +56,22 @@ export default function InvoiceList() {
   }
 
   const handleEditInvoice = async (invoiceListItem: InvoiceListItem) => {
-    setIsLoadingEdit(true)
-    try {
-      // Если selectedDoctor уже есть в данных списка:
-      const fullInvoice: InvoiceListItem = {
-        id: invoiceListItem.id,
-        patient: invoiceListItem.patient,
-        doctor: invoiceListItem.doctor, // Используем сохраненного доктора
-        date: new Date(invoiceListItem.date),
-        totalAmount: invoiceListItem.totalAmount,
-        services: invoiceListItem.services,
-        filename: invoiceListItem.filename
-      }
 
-      setEditingInvoice(fullInvoice)
-    } catch (error) {
-      console.error('Error loading invoice for edit:', error)
-      // Показать ошибку пользователю
-    } finally {
-      setIsLoadingEdit(false)
+    const fullInvoice: InvoiceListItem = {
+      id: invoiceListItem.id,
+      patient: invoiceListItem.patient,
+      doctor: invoiceListItem.doctor, // Используем сохраненного доктора
+      date: new Date(invoiceListItem.date),
+      totalAmount: invoiceListItem.totalAmount,
+      services: invoiceListItem.services,
+      filename: invoiceListItem.filename
     }
+    setEditingInvoice(fullInvoice)
+    console.log(fullInvoice)
+    setIsEditing(true)
+    console.log(fullInvoice)
   }
-  const handleEditCancel = () => {
-    setEditingInvoice(null)
-  }
-  const handleEditSaveSuccess = async () => {
-    setEditingInvoice(null)
-    window.electron.getInvoicesList()
-      .then((invoicesList) => setInvoices(invoicesList))
-      .catch((e) => {console.error(e)})
-  }
+
 
   const handleDeleteInvoice = async () => {
     if (!selectedInvoice) return;
@@ -99,7 +86,7 @@ export default function InvoiceList() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-auto">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-gray-900">Invoice List</h2>
         <Button className="bg-blue-600 hover:bg-blue-700">Open Folder</Button>
@@ -125,14 +112,9 @@ export default function InvoiceList() {
         </div>
       </div>
 
-      {/* Invoice Table */}
-      <div className="overflow-hidden">
-        {editingInvoice ? (
-          <EditInvoice
-            invoice={editingInvoice}
-            onSaveSuccess={handleEditSaveSuccess}
-            onCancel={handleEditCancel}
-          />
+      {
+        isEditing ? (
+          <CreateInvoice isEditing={true} setIsEditing={setIsEditing} editingInvoice={editingInvoice} setInvoiceListInvoices={setInvoices}/>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -198,8 +180,8 @@ export default function InvoiceList() {
             ))}
             </tbody>
           </table>
-        )}
-      </div>
+        )
+      }
 
       {filteredInvoices.length === 0 && (
         <div className="text-center py-8 text-gray-500">No invoices found matching the current filters.</div>

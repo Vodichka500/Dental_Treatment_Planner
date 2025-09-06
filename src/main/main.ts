@@ -78,38 +78,7 @@ async function ensureDataDir() {
 
 /* ---------- IPC методы ---------- */
 
-// ipcMain.on('ipc-example', async (event, arg) => {
-//   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
-//   console.log(msgTemplate(arg));
-//   event.reply('ipc-example', msgTemplate('pong'));
-// });
 
-// const userDataPath = app.getPath("userData");
-
-// ipcMain.handle("get-pricelist", async () => {
-//   const filePath = path.join(userDataPath, "data/pricelist.json");
-//   if (!fs.existsSync(filePath)) return null;
-//   const priceList: PriceList = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-//   return priceList
-// });
-//
-// ipcMain.handle("save-pricelist", async (_, data) => {
-//   // путь к рабочей папке
-//   const dataDir = path.join(userDataPath, "data");
-//
-//   // Создаём папку, если её нет
-//   if (!fs.existsSync(dataDir)) {
-//     fs.mkdirSync(dataDir, { recursive: true });
-//     console.log("Created folder:", dataDir);
-//   }
-//
-//   // путь к файлу
-//   const filePath = path.join(dataDir, "pricelist.json");
-//
-//   // Записываем файл
-//   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-//   console.log("New pricelist saved at:", filePath);
-// });
 function sanitizeFilename(name: string) {
   // убираем / \ : * ? " < > | и пробелы в конце
   return name.replace(/[/\\:*?"<>|]/g, "_");
