@@ -33,6 +33,7 @@ export interface InvoiceItemService {
   price: number;
   quantity: number;
   selectedTeeth: string[];
+  teethComments?: { [toothNumber: number]: string },
   comment?: string
   linkedToTeeth: Boolean;
   color?: string;
@@ -62,4 +63,5 @@ export interface ExtendedServiceItem extends ServiceItem {
   linkedToTeeth: boolean
   comment?: string,
   color?: string;
+  teethComments?: { [toothNumber: number]: string },
 }

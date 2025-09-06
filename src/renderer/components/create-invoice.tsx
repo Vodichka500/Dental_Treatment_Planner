@@ -1,96 +1,136 @@
-"use client"
+'use client';
 
-import React, { useEffect, useState } from "react"
-import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
-import { ServiceSelector } from "@/components/service-selector"
-import { clsx } from "clsx"
-import { fetchPriceList, type FetchStatus } from "@/lib/utils"
-import type { PriceList, Doctor, ServiceItem, ExtendedServiceItem, InvoiceListItem } from "@/lib/types";
-import ImportPricelist from "@/components/import-pricelist"
-import { generateInvoiceWord } from "@/lib/generate-word";
-import StaticToothSchema from "@/components/static-tooth-schema";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/Select";
-
-
-
+import React, { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { ServiceSelector } from '@/components/service-selector';
+import { clsx } from 'clsx';
+import { fetchPriceList, type FetchStatus } from '@/lib/utils';
+import type {
+  PriceList,
+  Doctor,
+  ServiceItem,
+  ExtendedServiceItem,
+  InvoiceListItem,
+} from '@/lib/types';
+import ImportPricelist from '@/components/import-pricelist';
+import { generateInvoiceWord } from '@/lib/generate-word';
+import StaticToothSchema from '@/components/static-tooth-schema';
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@/components/ui/Select';
+import { X } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 const dentalChart = {
-  upperRight: ["18", "17", "16", "15", "14", "13", "12", "11"],
-  upperLeft: ["21", "22", "23", "24", "25", "26", "27", "28"],
-  lowerRight: ["48", "47", "46", "45", "44", "43", "42", "41"],
-  lowerLeft: ["31", "32", "33", "34", "35", "36", "37", "38"],
-}
+  upperRight: ['18', '17', '16', '15', '14', '13', '12', '11'],
+  upperLeft: ['21', '22', '23', '24', '25', '26', '27', '28'],
+  lowerRight: ['48', '47', '46', '45', '44', '43', '42', '41'],
+  lowerLeft: ['31', '32', '33', '34', '35', '36', '37', '38'],
+};
 
 type CreateInvoiceProps = {
   // eslint-disable-next-line react/require-default-props
-  isEditing?: boolean,
+  isEditing?: boolean;
   // eslint-disable-next-line react/require-default-props
-  setIsEditing?: React.Dispatch<React.SetStateAction<boolean>>,
+  setIsEditing?: React.Dispatch<React.SetStateAction<boolean>>;
   // eslint-disable-next-line react/require-default-props
-  editingInvoice?: InvoiceListItem,
+  editingInvoice?: InvoiceListItem;
   // eslint-disable-next-line react/require-default-props
-  setInvoiceListInvoices?: React.Dispatch<React.SetStateAction<InvoiceListItem[]>>,
-}
-
+  setInvoiceListInvoices?: React.Dispatch<
+    React.SetStateAction<InvoiceListItem[]>
+  >;
+};
 
 // eslint-disable-next-line import/prefer-default-export
 export function CreateInvoice({
-                                isEditing,
-                                setIsEditing,
-                                editingInvoice,
-                                setInvoiceListInvoices}
-                              : CreateInvoiceProps) {
-  const [priceList, setPriceList] = useState<PriceList | null>()
-  const [doctors, setDoctors ] = useState<Doctor[] | null>()
-  const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle")
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  isEditing,
+  setIsEditing,
+  editingInvoice,
+  setInvoiceListInvoices,
+}: CreateInvoiceProps) {
+  const [priceList, setPriceList] = useState<PriceList | null>();
+  const [doctors, setDoctors] = useState<Doctor[] | null>();
+  const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const [patientName, setPatientName] = useState("")
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null)
-  const [date, setDate] = useState<Date>(new Date())
-  const [selectedServices, setSelectedServices] = useState<ExtendedServiceItem[]>([])
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [modal, setModal] = useState<{status: "hidden" | "error" | "success", filename?: string | null, errorMsg?: string}>({status: "hidden"})
+  const [patientName, setPatientName] = useState('');
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [date, setDate] = useState<Date>(new Date());
+  const [selectedServices, setSelectedServices] = useState<
+    ExtendedServiceItem[]
+  >([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [modal, setModal] = useState<{
+    status: 'hidden' | 'error' | 'success';
+    filename?: string | null;
+    errorMsg?: string;
+  }>({ status: 'hidden' });
 
-  const [serviceModal, setServiceModal] = useState(false)
-  const [pendingService, setPendingService] = useState<ServiceItem | null>(null)
-  const [serviceQuantity, setServiceQuantity] = useState(1)
-  const [selectedTeeth, setSelectedTeeth] = useState<string[]>([])
-  const [linkedToTeeth, setLinkedToTeeth] = useState(true)
-  const [serviceComment, setServiceComment] = useState("")
+  const [serviceModal, setServiceModal] = useState(false);
+  const [pendingService, setPendingService] = useState<ServiceItem | null>(
+    null,
+  );
+  const [serviceQuantity, setServiceQuantity] = useState(1);
+  const [selectedTeeth, setSelectedTeeth] = useState<string[]>([]);
+  const [linkedToTeeth, setLinkedToTeeth] = useState(true);
+  const [serviceComment, setServiceComment] = useState('');
+
+  const [commentTeethNumber, setCommentTeethNumber] = useState<string>('');
+  const [commentTeeth, setCommentTeeth] = useState<string>('');
+  const [commentTeethError, setCommentTeethError] = useState<string>('');
+  const [teethComments, setTeethComments] = useState<{
+    [toothNumber: number]: string;
+  }>({});
+
+  const [openCommentModal, setOpenCommentModal] = useState(false)
+  const handleRightClickTooth = (e: React.MouseEvent, tooth: string) => {
+    e.preventDefault() // чтобы не показывалось стандартное контекстное меню
+    setCommentTeethNumber(tooth)
+    setOpenCommentModal(true)
+  }
 
   useEffect(() => {
-    fetchPriceList(setPriceList, setFetchError, setFetchStatus)
-    window.electron.getDoctors()
-      .then(data => setDoctors(data))
-      .catch((e) => console.error(e))
-
-  }, [])
+    fetchPriceList(setPriceList, setFetchError, setFetchStatus);
+    window.electron
+      .getDoctors()
+      .then((data) => setDoctors(data))
+      .catch((e) => console.error(e));
+  }, []);
 
   useEffect(() => {
-    if(editingInvoice){
-      setPatientName(editingInvoice.patient)
-      setSelectedDoctor(editingInvoice.doctor)
-      setDate(new Date(editingInvoice.date))
-      setSelectedServices(editingInvoice.services)
+    if (editingInvoice) {
+      setPatientName(editingInvoice.patient);
+      setSelectedDoctor(editingInvoice.doctor);
+      setDate(new Date(editingInvoice.date));
+      setSelectedServices(editingInvoice.services);
     }
   }, [editingInvoice]);
 
   async function addInvoice(newInvoice: InvoiceListItem) {
     try {
-      const bufferedInvoice = await generateInvoiceWord(newInvoice)
-      const filename = `${newInvoice.patient}-${(new Date(newInvoice.date)).toISOString()}.docx`
-      await window.electron.saveInvoice({filename, bufferedInvoice})
-      return filename
+      const bufferedInvoice = await generateInvoiceWord(newInvoice);
+      const filename = `${newInvoice.patient}-${new Date(newInvoice.date).toISOString()}.docx`;
+      await window.electron.saveInvoice({ filename, bufferedInvoice });
+      return filename;
     } catch (e) {
-      console.log(e)
-      return null
+      console.log(e);
+      return null;
     }
   }
 
-  function handleCancelEditing(){
-    setPatientName("");
+  function handleCancelEditing() {
+    setPatientName('');
     setSelectedDoctor(null);
     setDate(new Date());
     setSelectedServices([]);
@@ -100,36 +140,34 @@ export function CreateInvoice({
   }
 
   const addService = (service: ServiceItem) => {
-    setErrorMsg(null)
-    setPendingService(service)
-    setServiceQuantity(1)
-    setSelectedTeeth([])
-    setLinkedToTeeth(true)
-    setServiceComment("")
-    setServiceModal(true)
-  }
+    setErrorMsg(null);
+    setPendingService(service);
+    setServiceQuantity(1);
+    setSelectedTeeth([]);
+    setLinkedToTeeth(true);
+    setServiceComment('');
+    setServiceModal(true);
+  };
 
   const toggleTooth = (tooth: string) => {
     setSelectedTeeth((prev) => {
-
-      let newTeeth: string[]
+      let newTeeth: string[];
       if (prev.includes(tooth)) {
-        newTeeth = prev.filter((t) => t !== tooth)
+        newTeeth = prev.filter((t) => t !== tooth);
       } else {
-        newTeeth = [...prev, tooth]
+        newTeeth = [...prev, tooth];
       }
 
       // Auto-update quantity based on selected teeth
       if (linkedToTeeth) {
-        setServiceQuantity(newTeeth.length || 1)
+        setServiceQuantity(newTeeth.length || 1);
       }
-      return newTeeth
-
-    })
-  }
+      return newTeeth;
+    });
+  };
 
   const confirmAddService = () => {
-    if (!pendingService) return
+    if (!pendingService) return;
 
     const newService: ExtendedServiceItem = {
       ...pendingService,
@@ -138,47 +176,97 @@ export function CreateInvoice({
       selectedTeeth: linkedToTeeth ? selectedTeeth : [],
       linkedToTeeth,
       comment: serviceComment.trim() || undefined,
-    }
-    console.log(newService)
+      teethComments: teethComments
+    };
+    console.log(newService);
 
-    setSelectedServices((prev) => [...prev, newService])
-    setServiceModal(false)
-    setPendingService(null)
-  }
+    setSelectedServices((prev) => [...prev, newService]);
+    setServiceModal(false);
+    setPendingService(null);
+
+    setCommentTeethNumber('');
+    setCommentTeeth('');
+    setCommentTeethError('');
+  };
 
   const cancelAddService = () => {
-    setServiceModal(false)
-    setPendingService(null)
-    setServiceQuantity(1)
-    setSelectedTeeth([])
-    setLinkedToTeeth(true)
-    setServiceComment("")
-  }
+    setServiceModal(false);
+    setPendingService(null);
+    setServiceQuantity(1);
+    setSelectedTeeth([]);
+    setLinkedToTeeth(true);
+    setServiceComment('');
+
+    setCommentTeethNumber('');
+    setCommentTeeth('');
+    setCommentTeethError('');
+  };
 
   const removeService = (serviceId: string) => {
-    setErrorMsg(null)
-    setSelectedServices((prev) => prev.filter((service) => service.id !== serviceId))
-  }
+    setErrorMsg(null);
+    setSelectedServices((prev) =>
+      prev.filter((service) => service.id !== serviceId),
+    );
+  };
 
-  const totalAmount = selectedServices.reduce((sum, service) => sum + service.price * service.quantity, 0)
+  const addToothComment = () => {
+    if (commentTeethNumber === '' && commentTeeth === '') {
+      setCommentTeethError('Missing teeth number or comment');
+      return;
+    }
+
+    setTeethComments((prev) => ({
+      ...prev,
+      [Number(commentTeethNumber)]: commentTeeth, // добавляем или обновляем
+    }));
+
+    // очистим поля после добавления
+    setCommentTeethNumber('');
+    setCommentTeeth('');
+    setCommentTeethError('');
+    setOpenCommentModal(false)
+  };
+
+  const removeToothComment = (tooth: string) => {
+    setTeethComments((prev) => {
+      const updated = { ...prev };
+      delete updated[Number(tooth)];
+      return updated;
+    });
+  };
+
+  const updateQuantity = (id: string, newQty: number) => {
+    setSelectedServices((prev) =>
+      prev.map((service) =>
+        service.id === id
+          ? { ...service, quantity: Math.max(1, newQty) } // защита от 0 и отрицательных
+          : service
+      )
+    );
+  };
+
+  const totalAmount = selectedServices.reduce(
+    (sum, service) => sum + service.price * service.quantity,
+    0,
+  );
 
   const handleGenerateInvoice = async () => {
     if (!patientName.trim()) {
-      setErrorMsg("Please enter patient name");
+      setErrorMsg('Please enter patient name');
       return;
     }
     if (!selectedDoctor) {
-      setErrorMsg("Please select a doctor");
+      setErrorMsg('Please select a doctor');
       return;
     }
     if (selectedServices.length === 0) {
-      setErrorMsg("Please select at least one service");
+      setErrorMsg('Please select at least one service');
       return;
     }
 
-    if(isEditing && editingInvoice){
-      const invoicesListItemId = editingInvoice.id
-      const filename = editingInvoice.filename
+    if (isEditing && editingInvoice) {
+      const invoicesListItemId = editingInvoice.id;
+      const filename = editingInvoice.filename;
       await window.electron.deleteInvoice(invoicesListItemId, filename);
     }
 
@@ -189,7 +277,7 @@ export function CreateInvoice({
       date,
       totalAmount,
       services: selectedServices,
-      filename: ""
+      filename: '',
     };
 
     const addToInvoiceList = async (filename: string) => {
@@ -201,7 +289,7 @@ export function CreateInvoice({
         date,
         totalAmount,
         doctor: selectedDoctor,
-        services: selectedServices
+        services: selectedServices,
       });
       if (setInvoiceListInvoices) {
         setInvoiceListInvoices(currentInvoices);
@@ -211,57 +299,65 @@ export function CreateInvoice({
 
     try {
       const filename = await addInvoice(newInvoice);
-      setModal({ status: "success", filename });
+      setModal({ status: 'success', filename });
       if (filename) await addToInvoiceList(filename);
     } catch (error) {
-      const formattedError = error instanceof Error ? error.message : String(error);
-      setModal({ status: "error", errorMsg: formattedError });
+      const formattedError =
+        error instanceof Error ? error.message : String(error);
+      setModal({ status: 'error', errorMsg: formattedError });
     } finally {
-      setPatientName("");
+      setPatientName('');
       setSelectedDoctor(null);
       setDate(new Date());
       setSelectedServices([]);
+      setCommentTeethNumber('');
+      setCommentTeeth('');
+      setCommentTeethError('');
     }
   };
 
-
   const handleOpenFile = async (filename: string | null | undefined) => {
     // Add your file opening logic here
-    console.log(`Opening file...${  filename}`)
-    if (filename){
-      await window.electron.openInvoice({filename})
+    console.log(`Opening file...${filename}`);
+    if (filename) {
+      await window.electron.openInvoice({ filename });
     }
-    if(setIsEditing){
-      setIsEditing(false)
+    if (setIsEditing) {
+      setIsEditing(false);
     }
-    setModal({ status: "hidden" })
-  }
-  const handleCloseModal = ()=> {
-    setModal({status: "hidden"})
-    if(setIsEditing){
-      setIsEditing(false)
+    setModal({ status: 'hidden' });
+  };
+  const handleCloseModal = () => {
+    setModal({ status: 'hidden' });
+    if (setIsEditing) {
+      setIsEditing(false);
     }
+  };
+
+  if (fetchStatus === 'loading' || fetchStatus === 'idle') {
+    return <div>Loading pricelist...</div>;
   }
 
-  if (fetchStatus === "loading" || fetchStatus === "idle") {
-    return <div>Loading pricelist...</div>
-  }
-
-  if (fetchStatus === "error") {
+  if (fetchStatus === 'error') {
     return (
       <div className="flex flex-col">
         <div className="text-red-500">Error: {fetchError}</div>
         <ImportPricelist />
       </div>
-    )
+    );
   }
 
   if (!priceList) {
-    return <div>No pricelist available.</div>
+    return <div>No pricelist available.</div>;
   }
 
   if (!doctors || doctors.length === 0) {
-    return <div>There is no doctors available. Add at least on in &quot;Doctors&quot; section</div>
+    return (
+      <div>
+        There is no doctors available. Add at least on in &quot;Doctors&quot;
+        section
+      </div>
+    );
   }
 
   return (
@@ -275,18 +371,22 @@ export function CreateInvoice({
         <div className="space-y-6">
           {/* Patient Information */}
           <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Information</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Patient Information
+            </h3>
             <div className="flex gap-3 items-center flex-wrap">
               <div>
                 {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Patient Name
+                </label>
                 <Input
                   type="text"
                   placeholder="Enter patient name..."
                   value={patientName}
                   onChange={(e) => {
-                    setPatientName(e.target.value)
-                    setErrorMsg(null)
+                    setPatientName(e.target.value);
+                    setErrorMsg(null);
                   }}
                   className="w-full"
                 />
@@ -294,10 +394,15 @@ export function CreateInvoice({
 
               <div>
                 {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label htmlFor="doctor-select" className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
+                <label
+                  htmlFor="doctor-select"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Doctor
+                </label>
 
                 <Select
-                  value={selectedDoctor?.id || ""}
+                  value={selectedDoctor?.id || ''}
                   onValueChange={(value) => {
                     const doctor = doctors.find((d) => d.id === value) || null;
                     setSelectedDoctor(doctor);
@@ -319,34 +424,56 @@ export function CreateInvoice({
 
               <div>
                 {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <Input type="date" value={date.toISOString().split("T")[0]} onChange={(e) => setDate(new Date(e.target.value))} className="w-full" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <Input
+                  type="date"
+                  value={date.toISOString().split('T')[0]}
+                  onChange={(e) => setDate(new Date(e.target.value))}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
 
-          <h2 className="text-xl font-medium text-gray-900 mb-4">Tooth schema</h2>
-          <StaticToothSchema services={selectedServices}/>
+          <h2 className="text-xl font-medium text-gray-900 mb-4">
+            Tooth schema
+          </h2>
+          <StaticToothSchema services={selectedServices} />
 
           {/* Service Selector */}
           <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Add Services</h3>
-            <ServiceSelector priceList={priceList} onServiceSelect={addService} />
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Add Services
+            </h3>
+            <ServiceSelector
+              priceList={priceList}
+              onServiceSelect={addService}
+            />
 
             {serviceModal && pendingService && (
               <div className="mt-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
-                <h4 className="font-medium text-gray-900 mb-4">Configure Service: {pendingService.name}</h4>
+                <h4 className="font-medium text-gray-900 mb-4">
+                  Configure Service: {pendingService.name}
+                </h4>
 
                 <div className="space-y-4">
                   {/* Quantity Input */}
                   <div>
                     {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Quantity
+                    </label>
                     <Input
                       type="number"
                       min="1"
                       value={serviceQuantity}
-                      onChange={(e) => setServiceQuantity(Math.max(1, Number.parseInt(e.target.value, 10) || 1))}
+                      onChange={(e) =>
+                        setServiceQuantity(
+                          Math.max(1, Number.parseInt(e.target.value, 10) || 1),
+                        )
+                      }
                       className="w-20"
                     />
                   </div>
@@ -359,37 +486,45 @@ export function CreateInvoice({
                         id="linkToTeeth"
                         checked={linkedToTeeth}
                         onChange={(e) => {
-                          setLinkedToTeeth(e.target.checked)
+                          setLinkedToTeeth(e.target.checked);
                           if (!e.target.checked) {
-                            setSelectedTeeth([])
+                            setSelectedTeeth([]);
                           }
                         }}
                         className="mr-2"
                       />
                       {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                      <label htmlFor="linkToTeeth" className="text-sm font-medium text-gray-700">
+                      <label
+                        htmlFor="linkToTeeth"
+                        className="text-sm font-medium text-gray-700"
+                      >
                         Link to specific teeth
                       </label>
                     </div>
 
                     {linkedToTeeth && (
                       <div className="border border-gray-300 rounded-lg p-4">
-                        <div className="text-sm font-medium text-gray-700 mb-2">Dental Chart</div>
+                        <div className="text-sm font-medium text-gray-700 mb-2">
+                          Dental Chart
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           {/* Upper Quadrants */}
                           <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">Upper Right</div>
+                            <div className="text-xs text-gray-500 mb-1">
+                              Upper Right
+                            </div>
                             <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.upperRight.map((tooth) => (
                                 <button
                                   key={tooth}
                                   type="button"
                                   onClick={() => toggleTooth(tooth)}
+                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
                                   className={clsx(
-                                    "w-8 h-8 text-xs border rounded",
+                                    'w-8 h-8 text-xs border rounded',
                                     selectedTeeth.includes(tooth)
-                                      ? "bg-blue-500 text-white border-blue-500"
-                                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
                                   )}
                                 >
                                   {tooth}
@@ -399,18 +534,21 @@ export function CreateInvoice({
                           </div>
 
                           <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">Upper Left</div>
+                            <div className="text-xs text-gray-500 mb-1">
+                              Upper Left
+                            </div>
                             <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.upperLeft.map((tooth) => (
                                 <button
                                   key={tooth}
                                   type="button"
                                   onClick={() => toggleTooth(tooth)}
+                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
                                   className={clsx(
-                                    "w-8 h-8 text-xs border rounded",
+                                    'w-8 h-8 text-xs border rounded',
                                     selectedTeeth.includes(tooth)
-                                      ? "bg-blue-500 text-white border-blue-500"
-                                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
                                   )}
                                 >
                                   {tooth}
@@ -421,18 +559,21 @@ export function CreateInvoice({
 
                           {/* Lower Quadrants */}
                           <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">Lower Right</div>
+                            <div className="text-xs text-gray-500 mb-1">
+                              Lower Right
+                            </div>
                             <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.lowerRight.map((tooth) => (
                                 <button
                                   key={tooth}
                                   type="button"
                                   onClick={() => toggleTooth(tooth)}
+                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
                                   className={clsx(
-                                    "w-8 h-8 text-xs border rounded",
+                                    'w-8 h-8 text-xs border rounded',
                                     selectedTeeth.includes(tooth)
-                                      ? "bg-blue-500 text-white border-blue-500"
-                                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
                                   )}
                                 >
                                   {tooth}
@@ -442,18 +583,21 @@ export function CreateInvoice({
                           </div>
 
                           <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">Lower Left</div>
+                            <div className="text-xs text-gray-500 mb-1">
+                              Lower Left
+                            </div>
                             <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
                               {dentalChart.lowerLeft.map((tooth) => (
                                 <button
                                   key={tooth}
                                   type="button"
                                   onClick={() => toggleTooth(tooth)}
+                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
                                   className={clsx(
-                                    "w-8 h-8 text-xs border rounded",
+                                    'w-8 h-8 text-xs border rounded',
                                     selectedTeeth.includes(tooth)
-                                      ? "bg-blue-500 text-white border-blue-500"
-                                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50",
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
                                   )}
                                 >
                                   {tooth}
@@ -465,18 +609,19 @@ export function CreateInvoice({
                         <div className="mt-5 flex gap-2 justify-end">
                           <Button
                             type="button"
+                            variant="outline"
                             size="sm"
-                            className="bg-blue-500 text-white hover:bg-blue-600"
+                            className="hover:bg-gray-600"
                             onClick={() => {
                               const allTeeth = [
                                 ...dentalChart.upperRight,
                                 ...dentalChart.upperLeft,
                                 ...dentalChart.lowerRight,
                                 ...dentalChart.lowerLeft,
-                              ]
-                              setSelectedTeeth(allTeeth)
+                              ];
+                              setSelectedTeeth(allTeeth);
                               if (linkedToTeeth) {
-                                setServiceQuantity(allTeeth.length)
+                                setServiceQuantity(allTeeth.length);
                               }
                             }}
                           >
@@ -487,9 +632,9 @@ export function CreateInvoice({
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setSelectedTeeth([])
+                              setSelectedTeeth([]);
                               if (linkedToTeeth) {
-                                setServiceQuantity(1)
+                                setServiceQuantity(1);
                               }
                             }}
                           >
@@ -498,13 +643,76 @@ export function CreateInvoice({
                         </div>
                         {selectedTeeth.length > 0 && (
                           <div className="mt-2 text-sm text-gray-600">
-                            Selected teeth:{" "}
-                            {selectedTeeth.sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10)).join(", ")}
+                            Selected teeth:{' '}
+                            {selectedTeeth
+                              .sort(
+                                (a, b) =>
+                                  Number.parseInt(a, 10) -
+                                  Number.parseInt(b, 10),
+                              )
+                              .join(', ')}
                           </div>
                         )}
                       </div>
                     )}
                   </div>
+                  {/* Comment to teeth input */}
+                  <div className="flex flex-col gap-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Comment to teeth (Optional)
+                    </label>
+                    <div className="flex gap-3">
+                      <Input
+                        id="tooth-number-comment"
+                        type="number"
+                        className="w-24"
+                        placeholder="Teeth Number"
+                        value={commentTeethNumber}
+                        onChange={(event) =>
+                          setCommentTeethNumber(event.target.value)
+                        }
+                      />
+                      <Input
+                        id="text"
+                        type="text"
+                        className="flex-1"
+                        placeholder="Any comments"
+                        value={commentTeeth}
+                        onChange={(event) =>
+                          setCommentTeeth(event.target.value)
+                        }
+                      />
+                      <Button
+                        variant="outline"
+                        disabled={
+                          commentTeeth === '' || commentTeethNumber === ''
+                        }
+                        onClick={addToothComment}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    <div className="text-sm text-red-500">
+                      {commentTeethError}
+                    </div>
+                  </div>
+
+                  <ul className="mt-2">
+                    {Object.entries(teethComments).map(([tooth, comment]) => (
+                      <li key={tooth}>
+                        <div className="flex gap-2 items-center">
+                          <p>
+                            <span className="font-medium">Tooth {tooth}:</span>{' '}
+                            {comment}
+                          </p>
+                          <X
+                            className="h-4 w-4 cursor-pointer text-red-500 hover:text-red-700"
+                            onClick={() => removeToothComment(tooth)}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
 
                   {/* Comment Input */}
                   <div>
@@ -522,10 +730,17 @@ export function CreateInvoice({
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 pt-2">
-                    <Button onClick={confirmAddService} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Button
+                      onClick={confirmAddService}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
                       Add
                     </Button>
-                    <Button onClick={cancelAddService} variant="ghost" className="text-gray-600 hover:text-gray-700">
+                    <Button
+                      onClick={cancelAddService}
+                      variant="ghost"
+                      className="text-gray-600 hover:text-gray-700"
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -538,63 +753,116 @@ export function CreateInvoice({
         {/* Right Column - Selected Services */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Selected Services</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Selected Services
+            </h3>
 
             {selectedServices.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No services selected</div>
+              <div className="text-center py-8 text-gray-500">
+                No services selected
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="overflow-hidden border border-gray-200 rounded-lg">
                   <table className="w-full">
                     <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
-                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
-                    </tr>
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          Service
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          Qty
+                        </th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                          Price
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                          Action
+                        </th>
+                      </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                    {selectedServices.map((service) => (
-                      <tr key={service.id}>
-                        <td className="px-4 py-2 text-sm text-gray-900">
-                          <div>
-                            <div className="font-medium">{service.name}</div>
-                            <div className="text-gray-500 text-xs">{service.path.join(" → ")}</div>
-                            {service.linkedToTeeth && service.selectedTeeth.length > 0 && (
-                              <div className="text-blue-600 text-xs mt-1">
-                                Teeth:{" "}
-                                {service.selectedTeeth
-                                  .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10))
-                                  .join(", ")}
+                      {selectedServices.map((service) => (
+                        <tr key={service.id}>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            <div>
+                              <div className="font-medium">{service.name}</div>
+                              <div className="text-gray-500 text-xs">
+                                {service.path.join(' → ')}
+                              </div>
+                              {service.linkedToTeeth &&
+                                service.selectedTeeth.length > 0 && (
+                                  <div className="text-blue-600 text-xs mt-1">
+                                    Teeth:{' '}
+                                    {service.selectedTeeth
+                                      .sort(
+                                        (a, b) =>
+                                          Number.parseInt(a, 10) -
+                                          Number.parseInt(b, 10),
+                                      )
+                                      .join(', ')}
+                                  </div>
+                                )}
+                              {service.comment && (
+                                <div className="text-gray-600 text-xs mt-1 italic">
+                                  Note: {service.comment}
+                                </div>
+                              )}
+                              <ul className="mt-1">
+                                {Object.entries(teethComments).map(([tooth, comment]) => (
+                                  <li key={tooth}>
+                                    <div className="flex gap-2 items-center">
+                                      <p className="text-gray-600 text-xs mt-1 italic">
+                                        <span className="font-medium">Tooth {tooth}:</span>{' '}
+                                        {comment}
+                                      </p>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => updateQuantity(service.id, service.quantity + 1)}
+                                className="px-1 text-gray-600 hover:text-black"
+                              >
+                                ▲
+                              </button>
+                              <span className="w-6 text-center">{service.quantity}</span>
+                              <button
+                                onClick={() =>
+                                  service.quantity > 1 && updateQuantity(service.id, service.quantity - 1)
+                                }
+                                className="px-1 text-gray-600 hover:text-black"
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900 text-right">
+                            {(service.price * service.quantity).toFixed(2)}{' '}
+                            {priceList.currency}
+                            {service.quantity > 1 && (
+                              <div className="text-xs text-gray-500">
+                                ({service.price.toFixed(2)} × {service.quantity}
+                                )
                               </div>
                             )}
-                            {service.comment && (
-                              <div className="text-gray-600 text-xs mt-1 italic">Note: {service.comment}</div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-900 text-center">{service.quantity}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900 text-right">
-                          {(service.price * service.quantity).toFixed(2)} {priceList.currency}
-                          {service.quantity > 1 && (
-                            <div className="text-xs text-gray-500">
-                              ({service.price.toFixed(2)} × {service.quantity})
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeService(service.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            Remove
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeService(service.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Remove
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -614,94 +882,149 @@ export function CreateInvoice({
 
           {/* Generate Invoice Button */}
           <div className="flex gap-4">
-            {
-              isEditing ? (
-                <>
-                  <Button
-                    onClick={handleCancelEditing}
-                    className="flex-1 bg-red-400 hover:bg-red-700 cursor-pointer"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleGenerateInvoice}
-                    className={clsx(
-                      "flex-1 bg-green-600 hover:bg-green-700 cursor-pointer",
-                      (!patientName.trim() || !selectedDoctor || selectedServices.length === 0) && "bg-gray-300",
-                    )}
-                  >
-                    Save Changes
-                  </Button>
-                </>
-              ) : (
+            {isEditing ? (
+              <>
+                <Button
+                  onClick={handleCancelEditing}
+                  className="flex-1 bg-red-400 hover:bg-red-700 cursor-pointer"
+                >
+                  Cancel
+                </Button>
                 <Button
                   onClick={handleGenerateInvoice}
                   className={clsx(
-                    "flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer",
-                    (!patientName.trim() || !selectedDoctor || selectedServices.length === 0) && "bg-gray-300",
+                    'flex-1 bg-green-600 hover:bg-green-700 cursor-pointer',
+                    (!patientName.trim() ||
+                      !selectedDoctor ||
+                      selectedServices.length === 0) &&
+                      'bg-gray-300',
                   )}
                 >
-                  Generate PDF
+                  Save Changes
                 </Button>
-              )
-            }
+              </>
+            ) : (
+              <Button
+                onClick={handleGenerateInvoice}
+                className={clsx(
+                  'flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer',
+                  (!patientName.trim() ||
+                    !selectedDoctor ||
+                    selectedServices.length === 0) &&
+                    'bg-gray-300',
+                )}
+              >
+                Generate PDF
+              </Button>
+            )}
           </div>
-          {errorMsg && <div className="text-sm mt-2 text-red-500 bg-red-50 p-2 rounded">{errorMsg}</div>}
+          {errorMsg && (
+            <div className="text-sm mt-2 text-red-500 bg-red-50 p-2 rounded">
+              {errorMsg}
+            </div>
+          )}
         </div>
       </div>
-      {(modal.status === "success" || modal.status === "error") && (
+      {(modal.status === 'success' || modal.status === 'error') && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-          {
-            modal.status === "success" ? (
-              <div className="bg-white rounded-lg shadow-lg border p-6 max-w-sm w-full mx-4 text-center">
-                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Success</h3>
-                <p className="text-gray-600 text-sm mb-6">File ready</p>
-
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm" onClick={() => handleOpenFile(modal.filename)}>
-                      Open File
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="text-sm bg-transparent"
-                      onClick={handleCloseModal}
-                    >
-                      Close
-                    </Button>
-                  </div>
-
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-lg border p-6 max-w-sm w-full mx-4 text-center">
-                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Error</h3>
-                <p className="text-red-600 text-sm mb-2">{modal.errorMsg || "Something went wrong"}</p>
-                <p className="text-gray-600 text-sm mb-6">Please try again</p>
-                <Button
-                  className="w-full bg-red-600 hover:bg-red-700 text-white text-sm"
-                  onClick={() => setModal({ status: "hidden" })}
+          {modal.status === 'success' ? (
+            <div className="bg-white rounded-lg shadow-lg border p-6 max-w-sm w-full mx-4 text-center">
+              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  Try Again
-                </Button>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
               </div>
-            )
-          }
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                Success
+              </h3>
+              <p className="text-gray-600 text-sm mb-6">File ready</p>
+
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                    onClick={() => handleOpenFile(modal.filename)}
+                  >
+                    Open File
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-sm bg-transparent"
+                    onClick={handleCloseModal}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-lg border p-6 max-w-sm w-full mx-4 text-center">
+              <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                Error
+              </h3>
+              <p className="text-red-600 text-sm mb-2">
+                {modal.errorMsg || 'Something went wrong'}
+              </p>
+              <p className="text-gray-600 text-sm mb-6">Please try again</p>
+              <Button
+                className="w-full bg-red-600 hover:bg-red-700 text-white text-sm"
+                onClick={() => setModal({ status: 'hidden' })}
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
         </div>
       )}
+
+      <Dialog open={openCommentModal} onOpenChange={setOpenCommentModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add comment to tooth {commentTeethNumber}</DialogTitle>
+          </DialogHeader>
+
+          <Input
+            placeholder="Enter comment..."
+            value={commentTeeth}
+            onChange={(e) => setCommentTeeth(e.target.value)}
+          />
+          <div className="text-sm text-red-500">
+            {commentTeethError}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={addToothComment}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }
-
-
-

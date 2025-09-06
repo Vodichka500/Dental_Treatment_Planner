@@ -281,6 +281,13 @@ export async function generateInvoiceWord(invoice: InvoiceListItem) {
       procedures.push(new Paragraph({ children: runs }));
     }
 
+    if (srv.teethComments){
+      procedures.push(...spacing1);
+      Object.entries(srv.teethComments).map(([tooth, comment]) => {
+        procedures.push(new Paragraph(`Зуб ${tooth}: ${comment}`))
+      })
+    }
+
     if (srv.linkedToTeeth && srv.selectedTeeth?.length > 0) {
       const teethNums = srv.selectedTeeth.map((n: string) => Number(n));
       procedures.push(...spacing2)

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Trash2, Edit, UserPlus } from "lucide-react"
 import type { Doctor } from "@/lib/types";
+import useAsync from "@/lib/hooks/useAsync";
 
 export default function Doctors() {
   const [doctors, setDoctors] = useState<Doctor[]>([])
@@ -15,6 +16,8 @@ export default function Doctors() {
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [formData, setFormData] = useState({ name: "", specialization: "" })
+
+  const { execute, status, error, data, isLoading } = useAsync(window.electron.getDoctors);
 
   // Load doctors on component mount
   useEffect(() => {
