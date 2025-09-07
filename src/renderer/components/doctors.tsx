@@ -1,107 +1,147 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Trash2, Edit, UserPlus } from "lucide-react"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Trash2, Edit, UserPlus, Loader2 } from "lucide-react";
 import type { Doctor } from "@/lib/types";
 import useAsync from "@/lib/hooks/useAsync";
 
 export default function Doctors() {
-  const [doctors, setDoctors] = useState<Doctor[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [formData, setFormData] = useState({ name: "", specialization: "" })
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: "", specialization: "" });
 
-  const { execute, status, error, data, isLoading } = useAsync(window.electron.getDoctors);
+  const { execute, error, isLoading } = useAsync(window.electron.getDoctors);
+  const {
+    execute: saveDoctors,
+    isLoading: isSaveDoctorsLoading,
+    error: saveDoctorsError
+  } = useAsync(window.electron.saveDoctors);
 
-  // Load doctors on component mount
   useEffect(() => {
-    const loadDoctors = async () => {
-      try {
-        const doctorsData = await window.electron.getDoctors()
-        setDoctors(doctorsData)
-      } catch (error) {
-        console.error("Error loading doctors:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadDoctors()
-  }, [])
+    execute()
+      // eslint-disable-next-line promise/always-return
+      .then(res => {
+        setDoctors(res);
+      }).catch(err => {
+      console.error(err);
+    });
+  }, [execute]);
+
 
   // Save doctors after any changes
   const updateDoctorsList = async (updatedDoctors: Doctor[]) => {
-    setDoctors(updatedDoctors)
-    await window.electron.saveDoctors(updatedDoctors)
-  }
+    setDoctors(updatedDoctors);
+    await saveDoctors(updatedDoctors);
+  };
 
   // Add new doctor
   const handleAddDoctor = async () => {
-    if (!formData.name.trim() || !formData.specialization.trim()) return
+    if (!formData.name.trim() || !formData.specialization.trim()) return;
 
     const newDoctor: Doctor = {
       id: Date.now().toString(),
       name: formData.name.trim(),
-      specialization: formData.specialization.trim(),
-    }
+      specialization: formData.specialization.trim()
+    };
 
-    const updatedDoctors = [...doctors, newDoctor]
-    await updateDoctorsList(updatedDoctors)
+    const updatedDoctors = [...doctors, newDoctor];
+    await updateDoctorsList(updatedDoctors);
 
-    setFormData({ name: "", specialization: "" })
-    setIsDialogOpen(false)
-  }
+    setFormData({ name: "", specialization: "" });
+    setIsDialogOpen(false);
+  };
 
   // Edit existing doctor
   const handleEditDoctor = async () => {
-    if (!editingDoctor || !formData.name.trim() || !formData.specialization.trim()) return
+    if (!editingDoctor || !formData.name.trim() || !formData.specialization.trim()) return;
 
     const updatedDoctors = doctors.map((doctor) =>
       doctor.id === editingDoctor.id
         ? { ...doctor, name: formData.name.trim(), specialization: formData.specialization.trim() }
-        : doctor,
-    )
+        : doctor
+    );
 
-    await updateDoctorsList(updatedDoctors)
+    await updateDoctorsList(updatedDoctors);
 
-    setEditingDoctor(null)
-    setFormData({ name: "", specialization: "" })
-    setIsDialogOpen(false)
-  }
+    setEditingDoctor(null);
+    setFormData({ name: "", specialization: "" });
+    setIsDialogOpen(false);
+  };
 
   // Delete doctor
   const handleDeleteDoctor = async (doctorId: string) => {
-    const updatedDoctors = doctors.filter((doctor) => doctor.id !== doctorId)
-    await updateDoctorsList(updatedDoctors)
-  }
+    const updatedDoctors = doctors.filter((doctor) => doctor.id !== doctorId);
+    await updateDoctorsList(updatedDoctors);
+  };
 
   // Open dialog for adding new doctor
   const openAddDialog = () => {
-    setEditingDoctor(null)
-    setFormData({ name: "", specialization: "" })
-    setIsDialogOpen(true)
-  }
+    setEditingDoctor(null);
+    setFormData({ name: "", specialization: "" });
+    setIsDialogOpen(true);
+  };
 
   // Open dialog for editing doctor
   const openEditDialog = (doctor: Doctor) => {
-    setEditingDoctor(doctor)
-    setFormData({ name: doctor.name, specialization: doctor.specialization })
-    setIsDialogOpen(true)
-  }
+    setEditingDoctor(doctor);
+    setFormData({ name: doctor.name, specialization: doctor.specialization });
+    setIsDialogOpen(true);
+  };
 
-  if (loading) {
+  const getButtonText = () => {
+    if (isSaveDoctorsLoading && !saveDoctorsError) {
+      return (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Saving...
+        </>
+      );
+    }
+    if (!isSaveDoctorsLoading && saveDoctorsError) {
+      return (
+        <>Error while saving data...</>
+      )
+    }
+    if (editingDoctor) {
+      return (
+        <>Update Doctor</>
+      );
+    }
+
+    return (
+      <>Add Doctor</>
+    );
+  };
+
+  if (isLoading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading doctors...</div>
+          <div className="text-lg flex">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            Loading doctors...
+          </div>
         </div>
       </div>
-    )
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg flex text-red-500">
+            Error Loading doctor. Try one more time.
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -144,10 +184,11 @@ export default function Doctors() {
               <div className="flex gap-2 pt-4">
                 <Button
                   onClick={editingDoctor ? handleEditDoctor : handleAddDoctor}
-                  className="flex-1"
-                  disabled={!formData.name.trim() || !formData.specialization.trim()}
+                  className="flex-1 flex items-center justify-center gap-2"
+                  disabled={!formData.name.trim() || !formData.specialization.trim() || isSaveDoctorsLoading}
                 >
-                  {editingDoctor ? "Update Doctor" : "Add Doctor"}
+                  {/* eslint-disable-next-line no-nested-ternary */}
+                  {getButtonText()}
                 </Button>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
                   Cancel
@@ -200,5 +241,5 @@ export default function Doctors() {
         </div>
       )}
     </div>
-  )
+  );
 }
