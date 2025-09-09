@@ -37,12 +37,13 @@ function ColorPicker({ editColor }: ColorPickerProps) {
           variant="ghost"
           className="text-blue-600 cursor-pointer"
         >
-          Set color
+          Установить цвет
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-48 p-2 grid grid-cols-6 gap-2">
         {presetColors.map((c) => (
           <button
+            type="button"
             key={c}
             className="w-6 h-6 rounded-full border cursor-pointer"
             style={{ backgroundColor: c }}

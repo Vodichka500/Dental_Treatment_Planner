@@ -2,42 +2,18 @@
 
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { ServiceSelector } from '@/components/service-selector';
 import { clsx } from 'clsx';
-import { fetchPriceList, type FetchStatus } from '@/lib/utils';
-import type {
-  PriceList,
-  Doctor,
-  ServiceItem,
-  ExtendedServiceItem,
-  InvoiceListItem,
-} from '@/lib/types';
 import ImportPricelist from '@/components/import-pricelist';
 import { generateInvoiceWord } from '@/lib/generate-word';
 import StaticToothSchema from '@/components/static-tooth-schema';
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@/components/ui/Select';
-import { X } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import PatientInfo from "@/components/patient-info";
+import AddServices from "@/components/add-services";
+import SubTotal from "@/components/sub-total";
 
-const dentalChart = {
-  upperRight: ['18', '17', '16', '15', '14', '13', '12', '11'],
-  upperLeft: ['21', '22', '23', '24', '25', '26', '27', '28'],
-  lowerRight: ['48', '47', '46', '45', '44', '43', '42', '41'],
-  lowerLeft: ['31', '32', '33', '34', '35', '36', '37', '38'],
-};
+import type { PriceList, Doctor, ExtendedServiceItem, InvoiceListItem } from '@/lib/types';
+import useAsync from "@/lib/hooks/useAsync";
+import LoadingErrorData from "@/components/loading-error-data";
+import { Loader2 } from "lucide-react";
 
 type CreateInvoiceProps = {
   // eslint-disable-next-line react/require-default-props
@@ -53,16 +29,15 @@ type CreateInvoiceProps = {
 };
 
 // eslint-disable-next-line import/prefer-default-export
-export function CreateInvoice({
-  isEditing,
-  setIsEditing,
-  editingInvoice,
-  setInvoiceListInvoices,
-}: CreateInvoiceProps) {
+export function CreateInvoice({ isEditing,
+                                setIsEditing,
+                                editingInvoice,
+                                setInvoiceListInvoices,
+                              }: CreateInvoiceProps) {
+
   const [priceList, setPriceList] = useState<PriceList | null>();
   const [doctors, setDoctors] = useState<Doctor[] | null>();
-  const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [generateInvoiceStatus, setGenerateInvoiceStatus] = useState<"loading" | "error" | null>()
 
   const [patientName, setPatientName] = useState('');
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -70,6 +45,7 @@ export function CreateInvoice({
   const [selectedServices, setSelectedServices] = useState<
     ExtendedServiceItem[]
   >([]);
+  const [subTotals, setSubTotals] = React.useState<SubTotal[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [modal, setModal] = useState<{
     status: 'hidden' | 'error' | 'success';
@@ -77,36 +53,19 @@ export function CreateInvoice({
     errorMsg?: string;
   }>({ status: 'hidden' });
 
-  const [serviceModal, setServiceModal] = useState(false);
-  const [pendingService, setPendingService] = useState<ServiceItem | null>(
-    null,
-  );
-  const [serviceQuantity, setServiceQuantity] = useState(1);
-  const [selectedTeeth, setSelectedTeeth] = useState<string[]>([]);
-  const [linkedToTeeth, setLinkedToTeeth] = useState(true);
-  const [serviceComment, setServiceComment] = useState('');
-
-  const [commentTeethNumber, setCommentTeethNumber] = useState<string>('');
-  const [commentTeeth, setCommentTeeth] = useState<string>('');
-  const [commentTeethError, setCommentTeethError] = useState<string>('');
-  const [teethComments, setTeethComments] = useState<{
-    [toothNumber: number]: string;
-  }>({});
-
-  const [openCommentModal, setOpenCommentModal] = useState(false)
-  const handleRightClickTooth = (e: React.MouseEvent, tooth: string) => {
-    e.preventDefault() // чтобы не показывалось стандартное контекстное меню
-    setCommentTeethNumber(tooth)
-    setOpenCommentModal(true)
-  }
+  const { execute: getPriceList, error: getPriceListError, isLoading: getPriceListLoading } = useAsync(window.electron.getPricelist)
+  const { execute: getDoctors, error: getDoctorsError, isLoading: getDoctorsLoading } = useAsync(window.electron.getDoctors);
 
   useEffect(() => {
-    fetchPriceList(setPriceList, setFetchError, setFetchStatus);
-    window.electron
-      .getDoctors()
+    // eslint-disable-next-line promise/catch-or-return
+    getPriceList()
+      .then(res => setPriceList(res))
+
+    // eslint-disable-next-line promise/catch-or-return
+    getDoctors()
       .then((data) => setDoctors(data))
-      .catch((e) => console.error(e));
-  }, []);
+
+  }, [getDoctors, getPriceList]);
 
   useEffect(() => {
     if (editingInvoice) {
@@ -114,6 +73,9 @@ export function CreateInvoice({
       setSelectedDoctor(editingInvoice.doctor);
       setDate(new Date(editingInvoice.date));
       setSelectedServices(editingInvoice.services);
+      if (editingInvoice.subTotals){
+        setSubTotals(editingInvoice.subTotals)
+      }
     }
   }, [editingInvoice]);
 
@@ -139,112 +101,6 @@ export function CreateInvoice({
     }
   }
 
-  const addService = (service: ServiceItem) => {
-    setErrorMsg(null);
-    setPendingService(service);
-    setServiceQuantity(1);
-    setSelectedTeeth([]);
-    setLinkedToTeeth(true);
-    setServiceComment('');
-    setServiceModal(true);
-  };
-
-  const toggleTooth = (tooth: string) => {
-    setSelectedTeeth((prev) => {
-      let newTeeth: string[];
-      if (prev.includes(tooth)) {
-        newTeeth = prev.filter((t) => t !== tooth);
-      } else {
-        newTeeth = [...prev, tooth];
-      }
-
-      // Auto-update quantity based on selected teeth
-      if (linkedToTeeth) {
-        setServiceQuantity(newTeeth.length || 1);
-      }
-      return newTeeth;
-    });
-  };
-
-  const confirmAddService = () => {
-    if (!pendingService) return;
-
-    const newService: ExtendedServiceItem = {
-      ...pendingService,
-      id: `service-${Date.now()}-${Math.random()}`,
-      quantity: serviceQuantity,
-      selectedTeeth: linkedToTeeth ? selectedTeeth : [],
-      linkedToTeeth,
-      comment: serviceComment.trim() || undefined,
-      teethComments: teethComments
-    };
-    console.log(newService);
-
-    setSelectedServices((prev) => [...prev, newService]);
-    setServiceModal(false);
-    setPendingService(null);
-
-    setCommentTeethNumber('');
-    setCommentTeeth('');
-    setCommentTeethError('');
-  };
-
-  const cancelAddService = () => {
-    setServiceModal(false);
-    setPendingService(null);
-    setServiceQuantity(1);
-    setSelectedTeeth([]);
-    setLinkedToTeeth(true);
-    setServiceComment('');
-
-    setCommentTeethNumber('');
-    setCommentTeeth('');
-    setCommentTeethError('');
-  };
-
-  const removeService = (serviceId: string) => {
-    setErrorMsg(null);
-    setSelectedServices((prev) =>
-      prev.filter((service) => service.id !== serviceId),
-    );
-  };
-
-  const addToothComment = () => {
-    if (commentTeethNumber === '' && commentTeeth === '') {
-      setCommentTeethError('Missing teeth number or comment');
-      return;
-    }
-
-    setTeethComments((prev) => ({
-      ...prev,
-      [Number(commentTeethNumber)]: commentTeeth, // добавляем или обновляем
-    }));
-
-    // очистим поля после добавления
-    setCommentTeethNumber('');
-    setCommentTeeth('');
-    setCommentTeethError('');
-    setOpenCommentModal(false)
-  };
-
-  const removeToothComment = (tooth: string) => {
-    setTeethComments((prev) => {
-      const updated = { ...prev };
-      delete updated[Number(tooth)];
-      return updated;
-    });
-  };
-
-  const updateQuantity = (id: string, newQty: number) => {
-    setSelectedServices((prev) =>
-      prev.map((service) =>
-        service.id === id
-          ? { ...service, quantity: Math.max(1, newQty) } // защита от 0 и отрицательных
-          : service
-      )
-    );
-  };
-
   const totalAmount = selectedServices.reduce(
     (sum, service) => sum + service.price * service.quantity,
     0,
@@ -252,21 +108,22 @@ export function CreateInvoice({
 
   const handleGenerateInvoice = async () => {
     if (!patientName.trim()) {
-      setErrorMsg('Please enter patient name');
+      setErrorMsg('Пожалуйста, введите имя пациента');
       return;
     }
     if (!selectedDoctor) {
-      setErrorMsg('Please select a doctor');
+      setErrorMsg('Пожалуйста, выберите доктора');
       return;
     }
     if (selectedServices.length === 0) {
-      setErrorMsg('Please select at least one service');
+      setErrorMsg('Пожалуйста, выберите хотя бы одну услугу');
       return;
     }
 
+    setGenerateInvoiceStatus("loading")
     if (isEditing && editingInvoice) {
       const invoicesListItemId = editingInvoice.id;
-      const filename = editingInvoice.filename;
+      const {filename} = editingInvoice;
       await window.electron.deleteInvoice(invoicesListItemId, filename);
     }
 
@@ -290,11 +147,13 @@ export function CreateInvoice({
         totalAmount,
         doctor: selectedDoctor,
         services: selectedServices,
+        subTotals
       });
       if (setInvoiceListInvoices) {
         setInvoiceListInvoices(currentInvoices);
       }
       await window.electron.saveInvoicesList(currentInvoices);
+      setGenerateInvoiceStatus(null)
     };
 
     try {
@@ -310,15 +169,12 @@ export function CreateInvoice({
       setSelectedDoctor(null);
       setDate(new Date());
       setSelectedServices([]);
-      setCommentTeethNumber('');
-      setCommentTeeth('');
-      setCommentTeethError('');
+
     }
   };
 
   const handleOpenFile = async (filename: string | null | undefined) => {
-    // Add your file opening logic here
-    console.log(`Opening file...${filename}`);
+
     if (filename) {
       await window.electron.openInvoice({ filename });
     }
@@ -334,551 +190,89 @@ export function CreateInvoice({
     }
   };
 
-  if (fetchStatus === 'loading' || fetchStatus === 'idle') {
-    return <div>Loading pricelist...</div>;
-  }
+  const getGenerateButtonText = () => {
+    if (generateInvoiceStatus === "loading") {
+      return (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Сохранение...
+        </>
+      );
+    }
+    if (generateInvoiceStatus === "error") {
+      return (
+        <>Ошибка при сохранении данных...</>
+      )
+    }
+    if(isEditing){
+      return (
+        <>Сохранить изменения</>
+      )
+    }
 
-  if (fetchStatus === 'error') {
     return (
-      <div className="flex flex-col">
-        <div className="text-red-500">Error: {fetchError}</div>
-        <ImportPricelist />
-      </div>
+      <>Генерировать план лечения</>
     );
   }
 
-  if (!priceList) {
-    return <div>No pricelist available.</div>;
+  // LOADING DATA CHECK
+  if (getPriceListLoading && !getPriceListError) {
+    return <LoadingErrorData isLoading message="loading pricelist..."/>
+  }
+  if (!getPriceListLoading && getPriceListError || !priceList) {
+    return (
+     <>
+       <LoadingErrorData isLoading={false} message="Ошибка загрузки прайс-листа. Попробуйте ещё раз или загрузите прайс-лист ниже."/>
+       <ImportPricelist />
+     </>
+    );
+  }
+  if (getDoctorsLoading) {
+    return <LoadingErrorData isLoading message="Загрузка списка докторов..."/>
   }
 
-  if (!doctors || doctors.length === 0) {
-    return (
-      <div>
-        There is no doctors available. Add at least on in &quot;Doctors&quot;
-        section
-      </div>
-    );
+  if (getDoctorsError || !doctors) {
+    return <LoadingErrorData isLoading={false} message="Ошибка загрузки списка докторов. Попробуйте ещё раз."/>
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold text-gray-900">Create Invoice</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">Создать план лечения</h2>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left Column - Form */}
         <div className="space-y-6">
-          {/* Patient Information */}
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Patient Information
-            </h3>
-            <div className="flex gap-3 items-center flex-wrap">
-              <div>
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Patient Name
-                </label>
-                <Input
-                  type="text"
-                  placeholder="Enter patient name..."
-                  value={patientName}
-                  onChange={(e) => {
-                    setPatientName(e.target.value);
-                    setErrorMsg(null);
-                  }}
-                  className="w-full"
-                />
-              </div>
 
-              <div>
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label
-                  htmlFor="doctor-select"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Doctor
-                </label>
+          <PatientInfo patientName={patientName}
+                       setPatientName={setPatientName}
+                       doctors={doctors}
+                       selectedDoctor={selectedDoctor}
+                       setSelectedDoctor={setSelectedDoctor}
+                       date={date}
+                       setDate={setDate}
+                       setErrorMsg={setErrorMsg}
+          />
 
-                <Select
-                  value={selectedDoctor?.id || ''}
-                  onValueChange={(value) => {
-                    const doctor = doctors.find((d) => d.id === value) || null;
-                    setSelectedDoctor(doctor);
-                    setErrorMsg(null);
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a doctor..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {doctors.map((doctor) => (
-                      <SelectItem key={doctor.id} value={doctor.id}>
-                        {doctor.name} - {doctor.specialization}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date
-                </label>
-                <Input
-                  type="date"
-                  value={date.toISOString().split('T')[0]}
-                  onChange={(e) => setDate(new Date(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
-
-          <h2 className="text-xl font-medium text-gray-900 mb-4">
-            Tooth schema
-          </h2>
           <StaticToothSchema services={selectedServices} />
 
-          {/* Service Selector */}
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Add Services
-            </h3>
-            <ServiceSelector
-              priceList={priceList}
-              onServiceSelect={addService}
-            />
-
-            {serviceModal && pendingService && (
-              <div className="mt-6 p-4 border border-blue-200 rounded-lg bg-blue-50">
-                <h4 className="font-medium text-gray-900 mb-4">
-                  Configure Service: {pendingService.name}
-                </h4>
-
-                <div className="space-y-4">
-                  {/* Quantity Input */}
-                  <div>
-                    {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Quantity
-                    </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={serviceQuantity}
-                      onChange={(e) =>
-                        setServiceQuantity(
-                          Math.max(1, Number.parseInt(e.target.value, 10) || 1),
-                        )
-                      }
-                      className="w-20"
-                    />
-                  </div>
-
-                  {/* Teeth Selection */}
-                  <div>
-                    <div className="flex items-center mb-3">
-                      <input
-                        type="checkbox"
-                        id="linkToTeeth"
-                        checked={linkedToTeeth}
-                        onChange={(e) => {
-                          setLinkedToTeeth(e.target.checked);
-                          if (!e.target.checked) {
-                            setSelectedTeeth([]);
-                          }
-                        }}
-                        className="mr-2"
-                      />
-                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                      <label
-                        htmlFor="linkToTeeth"
-                        className="text-sm font-medium text-gray-700"
-                      >
-                        Link to specific teeth
-                      </label>
-                    </div>
-
-                    {linkedToTeeth && (
-                      <div className="border border-gray-300 rounded-lg p-4">
-                        <div className="text-sm font-medium text-gray-700 mb-2">
-                          Dental Chart
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          {/* Upper Quadrants */}
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">
-                              Upper Right
-                            </div>
-                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
-                              {dentalChart.upperRight.map((tooth) => (
-                                <button
-                                  key={tooth}
-                                  type="button"
-                                  onClick={() => toggleTooth(tooth)}
-                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
-                                  className={clsx(
-                                    'w-8 h-8 text-xs border rounded',
-                                    selectedTeeth.includes(tooth)
-                                      ? 'bg-blue-500 text-white border-blue-500'
-                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
-                                  )}
-                                >
-                                  {tooth}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">
-                              Upper Left
-                            </div>
-                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
-                              {dentalChart.upperLeft.map((tooth) => (
-                                <button
-                                  key={tooth}
-                                  type="button"
-                                  onClick={() => toggleTooth(tooth)}
-                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
-                                  className={clsx(
-                                    'w-8 h-8 text-xs border rounded',
-                                    selectedTeeth.includes(tooth)
-                                      ? 'bg-blue-500 text-white border-blue-500'
-                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
-                                  )}
-                                >
-                                  {tooth}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Lower Quadrants */}
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">
-                              Lower Right
-                            </div>
-                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
-                              {dentalChart.lowerRight.map((tooth) => (
-                                <button
-                                  key={tooth}
-                                  type="button"
-                                  onClick={() => toggleTooth(tooth)}
-                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
-                                  className={clsx(
-                                    'w-8 h-8 text-xs border rounded',
-                                    selectedTeeth.includes(tooth)
-                                      ? 'bg-blue-500 text-white border-blue-500'
-                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
-                                  )}
-                                >
-                                  {tooth}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1">
-                              Lower Left
-                            </div>
-                            <div className="flex flex-nowrap gap-1 justify-center overflow-x-auto">
-                              {dentalChart.lowerLeft.map((tooth) => (
-                                <button
-                                  key={tooth}
-                                  type="button"
-                                  onClick={() => toggleTooth(tooth)}
-                                  onContextMenu={(e) => handleRightClickTooth(e, tooth)}
-                                  className={clsx(
-                                    'w-8 h-8 text-xs border rounded',
-                                    selectedTeeth.includes(tooth)
-                                      ? 'bg-blue-500 text-white border-blue-500'
-                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50',
-                                  )}
-                                >
-                                  {tooth}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-5 flex gap-2 justify-end">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="hover:bg-gray-600"
-                            onClick={() => {
-                              const allTeeth = [
-                                ...dentalChart.upperRight,
-                                ...dentalChart.upperLeft,
-                                ...dentalChart.lowerRight,
-                                ...dentalChart.lowerLeft,
-                              ];
-                              setSelectedTeeth(allTeeth);
-                              if (linkedToTeeth) {
-                                setServiceQuantity(allTeeth.length);
-                              }
-                            }}
-                          >
-                            Select All
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedTeeth([]);
-                              if (linkedToTeeth) {
-                                setServiceQuantity(1);
-                              }
-                            }}
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                        {selectedTeeth.length > 0 && (
-                          <div className="mt-2 text-sm text-gray-600">
-                            Selected teeth:{' '}
-                            {selectedTeeth
-                              .sort(
-                                (a, b) =>
-                                  Number.parseInt(a, 10) -
-                                  Number.parseInt(b, 10),
-                              )
-                              .join(', ')}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {/* Comment to teeth input */}
-                  <div className="flex flex-col gap-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Comment to teeth (Optional)
-                    </label>
-                    <div className="flex gap-3">
-                      <Input
-                        id="tooth-number-comment"
-                        type="number"
-                        className="w-24"
-                        placeholder="Teeth Number"
-                        value={commentTeethNumber}
-                        onChange={(event) =>
-                          setCommentTeethNumber(event.target.value)
-                        }
-                      />
-                      <Input
-                        id="text"
-                        type="text"
-                        className="flex-1"
-                        placeholder="Any comments"
-                        value={commentTeeth}
-                        onChange={(event) =>
-                          setCommentTeeth(event.target.value)
-                        }
-                      />
-                      <Button
-                        variant="outline"
-                        disabled={
-                          commentTeeth === '' || commentTeethNumber === ''
-                        }
-                        onClick={addToothComment}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                    <div className="text-sm text-red-500">
-                      {commentTeethError}
-                    </div>
-                  </div>
-
-                  <ul className="mt-2">
-                    {Object.entries(teethComments).map(([tooth, comment]) => (
-                      <li key={tooth}>
-                        <div className="flex gap-2 items-center">
-                          <p>
-                            <span className="font-medium">Tooth {tooth}:</span>{' '}
-                            {comment}
-                          </p>
-                          <X
-                            className="h-4 w-4 cursor-pointer text-red-500 hover:text-red-700"
-                            onClick={() => removeToothComment(tooth)}
-                          />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Comment Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Comment (Optional)
-                    </label>
-                    <textarea
-                      placeholder="Add any notes or comments..."
-                      value={serviceComment}
-                      onChange={(e) => setServiceComment(e.target.value)}
-                      className="w-full border rounded-md p-2 text-sm focus:ring focus:ring-blue-200"
-                      rows={4}
-                    />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      onClick={confirmAddService}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      Add
-                    </Button>
-                    <Button
-                      onClick={cancelAddService}
-                      variant="ghost"
-                      className="text-gray-600 hover:text-gray-700"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <AddServices setSelectedServices={setSelectedServices}
+                       setErrorMsg={setErrorMsg}
+                       priceList={priceList}
+          />
         </div>
 
         {/* Right Column - Selected Services */}
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Selected Services
-            </h3>
-
-            {selectedServices.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No services selected
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="overflow-hidden border border-gray-200 rounded-lg">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                          Service
-                        </th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          Qty
-                        </th>
-                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                          Price
-                        </th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {selectedServices.map((service) => (
-                        <tr key={service.id}>
-                          <td className="px-4 py-2 text-sm text-gray-900">
-                            <div>
-                              <div className="font-medium">{service.name}</div>
-                              <div className="text-gray-500 text-xs">
-                                {service.path.join(' → ')}
-                              </div>
-                              {service.linkedToTeeth &&
-                                service.selectedTeeth.length > 0 && (
-                                  <div className="text-blue-600 text-xs mt-1">
-                                    Teeth:{' '}
-                                    {service.selectedTeeth
-                                      .sort(
-                                        (a, b) =>
-                                          Number.parseInt(a, 10) -
-                                          Number.parseInt(b, 10),
-                                      )
-                                      .join(', ')}
-                                  </div>
-                                )}
-                              {service.comment && (
-                                <div className="text-gray-600 text-xs mt-1 italic">
-                                  Note: {service.comment}
-                                </div>
-                              )}
-                              <ul className="mt-1">
-                                {Object.entries(teethComments).map(([tooth, comment]) => (
-                                  <li key={tooth}>
-                                    <div className="flex gap-2 items-center">
-                                      <p className="text-gray-600 text-xs mt-1 italic">
-                                        <span className="font-medium">Tooth {tooth}:</span>{' '}
-                                        {comment}
-                                      </p>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-900 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                onClick={() => updateQuantity(service.id, service.quantity + 1)}
-                                className="px-1 text-gray-600 hover:text-black"
-                              >
-                                ▲
-                              </button>
-                              <span className="w-6 text-center">{service.quantity}</span>
-                              <button
-                                onClick={() =>
-                                  service.quantity > 1 && updateQuantity(service.id, service.quantity - 1)
-                                }
-                                className="px-1 text-gray-600 hover:text-black"
-                              >
-                                ▼
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-900 text-right">
-                            {(service.price * service.quantity).toFixed(2)}{' '}
-                            {priceList.currency}
-                            {service.quantity > 1 && (
-                              <div className="text-xs text-gray-500">
-                                ({service.price.toFixed(2)} × {service.quantity}
-                                )
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-2 text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeService(service.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              Remove
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Total */}
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="flex justify-between items-center text-lg font-semibold">
-                    <span>Total:</span>
-                    <span>
-                      {totalAmount.toFixed(2)} {priceList.currency}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+         <SubTotal totalAmount={totalAmount}
+                   setErrorMsg={setErrorMsg}
+                   priceList={priceList}
+                   setSelectedServices={setSelectedServices}
+                   selectedServices={selectedServices}
+                   subTotals={subTotals}
+                   setSubTotals={setSubTotals}
+         />
 
           {/* Generate Invoice Button */}
           <div className="flex gap-4">
@@ -888,7 +282,7 @@ export function CreateInvoice({
                   onClick={handleCancelEditing}
                   className="flex-1 bg-red-400 hover:bg-red-700 cursor-pointer"
                 >
-                  Cancel
+                  Отменить
                 </Button>
                 <Button
                   onClick={handleGenerateInvoice}
@@ -900,7 +294,7 @@ export function CreateInvoice({
                       'bg-gray-300',
                   )}
                 >
-                  Save Changes
+                  {getGenerateButtonText()}
                 </Button>
               </>
             ) : (
@@ -914,7 +308,7 @@ export function CreateInvoice({
                     'bg-gray-300',
                 )}
               >
-                Generate PDF
+                {getGenerateButtonText()}
               </Button>
             )}
           </div>
@@ -947,7 +341,7 @@ export function CreateInvoice({
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
                 Success
               </h3>
-              <p className="text-gray-600 text-sm mb-6">File ready</p>
+              <p className="text-gray-600 text-sm mb-6">Файл готов</p>
 
               <div className="space-y-2">
                 <div className="flex gap-2">
@@ -955,14 +349,14 @@ export function CreateInvoice({
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm"
                     onClick={() => handleOpenFile(modal.filename)}
                   >
-                    Open File
+                    Открыть файл
                   </Button>
                   <Button
                     variant="outline"
                     className="text-sm bg-transparent"
                     onClick={handleCloseModal}
                   >
-                    Close
+                    Закрыть
                   </Button>
                 </div>
               </div>
@@ -985,46 +379,22 @@ export function CreateInvoice({
                 </svg>
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Error
+                Ошибка
               </h3>
               <p className="text-red-600 text-sm mb-2">
-                {modal.errorMsg || 'Something went wrong'}
+                {modal.errorMsg || 'Что-то пошло не так'}
               </p>
-              <p className="text-gray-600 text-sm mb-6">Please try again</p>
+              <p className="text-gray-600 text-sm mb-6">Пожалуйста попробуйте снова</p>
               <Button
                 className="w-full bg-red-600 hover:bg-red-700 text-white text-sm"
                 onClick={() => setModal({ status: 'hidden' })}
               >
-                Try Again
+                Попробовать снова
               </Button>
             </div>
           )}
         </div>
       )}
-
-      <Dialog open={openCommentModal} onOpenChange={setOpenCommentModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add comment to tooth {commentTeethNumber}</DialogTitle>
-          </DialogHeader>
-
-          <Input
-            placeholder="Enter comment..."
-            value={commentTeeth}
-            onChange={(e) => setCommentTeeth(e.target.value)}
-          />
-          <div className="text-sm text-red-500">
-            {commentTeethError}
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={addToothComment}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

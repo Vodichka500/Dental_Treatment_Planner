@@ -80,6 +80,9 @@ function StaticToothSchema({ services }: StaticToothSchemaProps) {
 
   return (
     <div className="bg-white border rounded-md  p-5">
+      <h2 className="text-lg font-medium text-gray-900 mb-4">
+        Зубная формула
+      </h2>
       <table className="table-fixed border-collapse w-full text-center">
         <tbody>
         <tr>

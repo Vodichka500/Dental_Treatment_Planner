@@ -188,7 +188,7 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
             onClick={handleBack}
             className="mb-4 bg-transparent"
           >
-            ← Back
+            ← Назад
           </Button>
         )}
       </div>
@@ -198,11 +198,11 @@ export function ServiceSelector({ priceList, onServiceSelect }: ServiceSelectorP
         <div>
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            {selectedPath.length === 0 ? 'Select Category' : 'Select Option'}
+            {selectedPath.length === 0 ? 'Выбери категорию' : 'Выбери опцию'}
           </label>
           <Select value="" onValueChange={handleSelection}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Choose an option..." />
+              <SelectValue placeholder="Выбери опцию..." />
             </SelectTrigger>
             <SelectContent>
               {currentOptions.map(({ key, node, isLeaf }) => (

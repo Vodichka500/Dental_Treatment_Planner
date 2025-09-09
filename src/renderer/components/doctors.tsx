@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Trash2, Edit, UserPlus, Loader2 } from "lucide-react";
 import type { Doctor } from "@/lib/types";
 import useAsync from "@/lib/hooks/useAsync";
+import LoadingErrorData from "@/components/loading-error-data";
 
 export default function Doctors() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -99,84 +100,67 @@ export default function Doctors() {
       return (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
-          Saving...
+          Сохранение...
         </>
       );
     }
     if (!isSaveDoctorsLoading && saveDoctorsError) {
       return (
-        <>Error while saving data...</>
+        <>Ошибка сохранения данных..</>
       )
     }
     if (editingDoctor) {
       return (
-        <>Update Doctor</>
+        <>Изменить данные</>
       );
     }
 
     return (
-      <>Add Doctor</>
+      <>Добавить доктора</>
     );
   };
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg flex">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            Loading doctors...
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingErrorData isLoading message="Загрузка списка докторов..."/>
   }
 
   if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg flex text-red-500">
-            Error Loading doctor. Try one more time.
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingErrorData isLoading={false} message="Ошибка загрузки списка докторов. Попробуй снова."/>
   }
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-balance">Doctors Management</h1>
-          <p className="text-muted-foreground mt-2">Manage your dental practice doctors</p>
+          <h1 className="text-3xl font-bold text-balance">Редактор списка докторов</h1>
+          <p className="text-muted-foreground mt-2">Добавляй и изменяй данные докторов в клинике</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={openAddDialog} className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
-              Add Doctor
+              Добавить доктора
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingDoctor ? "Edit Doctor" : "Add New Doctor"}</DialogTitle>
+              <DialogTitle>{editingDoctor ? "Изменить данные доктора" : "Добавить нового доктора"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Doctor Name</Label>
+                <Label htmlFor="name">ФИО</Label>
                 <Input
                   id="name"
-                  placeholder="Enter doctor's full name"
+                  placeholder="Введи ФИО доктора"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="specialization">Specialization</Label>
+                <Label htmlFor="specialization">Специализация</Label>
                 <Input
                   id="specialization"
-                  placeholder="Enter specialization"
+                  placeholder="Введи специализацию"
                   value={formData.specialization}
                   onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
                 />
@@ -191,7 +175,7 @@ export default function Doctors() {
                   {getButtonText()}
                 </Button>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
-                  Cancel
+                  Отмена
                 </Button>
               </div>
             </div>
@@ -215,7 +199,7 @@ export default function Doctors() {
                   className="flex items-center gap-1 flex-1"
                 >
                   <Edit className="h-3 w-3" />
-                  Edit
+                  Изменить
                 </Button>
                 <Button
                   variant="destructive"
@@ -224,7 +208,7 @@ export default function Doctors() {
                   className="flex items-center gap-1 flex-1"
                 >
                   <Trash2 className="h-3 w-3" />
-                  Delete
+                  Удалить
                 </Button>
               </div>
             </CardContent>
@@ -235,9 +219,9 @@ export default function Doctors() {
       {doctors.length === 0 && (
         <div className="text-center py-12">
           <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">No doctors found</h3>
-          <p className="text-muted-foreground mb-4">Get started by adding your first doctor</p>
-          <Button onClick={openAddDialog}>Add First Doctor</Button>
+          <h3 className="text-lg font-medium mb-2">Доктора не найдены</h3>
+          <p className="text-muted-foreground mb-4">Начни с добавления докторов</p>
+          <Button onClick={openAddDialog}>Добавить первого доктора</Button>
         </div>
       )}
     </div>

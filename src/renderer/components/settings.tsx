@@ -33,32 +33,30 @@ export function Settings() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold text-gray-900">Settings</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">Настройки</h2>
       </div>
 
       <div className="max-w-2xl space-y-6">
         {/* File Storage Settings */}
         <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">File Storage</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Файловое хранилище</h3>
           <div className="space-y-4">
-            <div>
-              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-              <label className="block text-sm font-medium text-gray-700 mb-2">Default Save Folder</label>
-              <div className="flex gap-2 flex-wrap">
-                <div className="py-1 px-2 border-[1px] border-gray-200 rounded-sm text-gray-600">
-                  {dataDir}
-                </div>
-                <Button variant="outline" className="cursor-pointer" onClick={()=> window.electron.openDataDir()}>
-                  Open in explorer
+            <div className="flex flex-col gap-2 flex-wrap">
+              <div className="py-1 px-2 border-[1px] border-gray-200 rounded-sm text-gray-600 overflow-x-auto whitespace-nowrap -w-full">
+                {dataDir}
+              </div>
+              <div className="flex gap-2 justify-end flex-wrap">
+                <Button variant="outline" className="cursor-pointer" onClick={() => window.electron.openDataDir()}>
+                  Открыть в проводнике
                 </Button>
                 <Button variant="outline" className="cursor-pointer" onClick={() => setShowWarningDialog(true)}>
-                  Change Save Folder
+                  Изменить папку сохранения
                 </Button>
               </div>
-              <p className="text-sm text-gray-500 mt-1">
-                This folder will be used to save generated PDF invoices and exported data.
-              </p>
             </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Эта папка будет использоваться для сохранения планов лечения и данных, необходимых для работы приложения.
+            </p>
           </div>
         </div>
 
@@ -67,16 +65,16 @@ export function Settings() {
           <h3 className="text-lg font-medium text-gray-900 mb-4">Application Information</h3>
           <div className="space-y-3 text-sm text-gray-600">
             <div className="flex justify-between">
-              <span>Version:</span>
-              <span className="font-medium">1.0.0</span>
+              <span>Версия:</span>
+              <span className="font-medium">v1.0.0</span>
             </div>
             <div className="flex justify-between">
-              <span>Build:</span>
-              <span className="font-medium">2024.01.01</span>
+              <span>Последние изменение:</span>
+              <span className="font-medium">07.09.2025</span>
             </div>
             <div className="flex justify-between">
-              <span>Platform:</span>
-              <span className="font-medium">Electron + React</span>
+              <span>Разработал:</span>
+              <span className="font-medium">u.kamisarau@gmail.com</span>
             </div>
           </div>
         </div>

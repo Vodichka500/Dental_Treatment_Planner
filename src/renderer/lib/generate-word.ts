@@ -9,7 +9,7 @@ import {
   TableCell,
   WidthType,
   ShadingType,
-  AlignmentType, ImageRun
+  AlignmentType, ImageRun, UnderlineType
 } from "docx";
 import { Invoice, InvoiceItemService, InvoiceListItem } from "@/lib/types";
 import logoImagePath from "../../../assets/logo.jpg";
@@ -221,8 +221,20 @@ export function getFooter(): Paragraph[] {
     new Paragraph({
       children: [
         new TextRun({
-          text: "Обращаем Ваше внимание! Стоимость, указанная в настоящем плане, является предварительной и действительна в течение 6 (шести) месяцев с даты составления.",
-          size: 18, // 9pt (по умолчанию 24 = 12pt)
+          text: "Обращаем Ваше внимание! Стоимость, указанная в настоящем плане, является предварительной и действительна в течение ",
+          bold: true,
+          size: 18, // 9pt
+        }),
+        new TextRun({
+          text: "3 (трех) месяцев",
+          bold: true,
+          underline: { type: UnderlineType.SINGLE },
+          size: 18,
+        }),
+        new TextRun({
+          text: " с даты составления.",
+          bold: true,
+          size: 18,
         }),
       ],
       spacing: { after: 200 },
@@ -241,7 +253,7 @@ export function getFooter(): Paragraph[] {
     new Paragraph({
       children: [
         new TextRun({
-          text: "Подпись пациента: _______________    Дата:________________",
+          text: "Подпись пациента: _______________",
           size: 18,
         }),
       ],

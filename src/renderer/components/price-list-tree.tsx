@@ -272,10 +272,10 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                   autoFocus
                 />
                 <Button size="sm" onClick={saveEdit} className="bg-green-600 hover:bg-green-700">
-                  Save
+                  Сохранить
                 </Button>
                 <Button size="sm" variant="default" onClick={cancelEdit}>
-                  Cancel
+                  Отмена
                 </Button>
               </div>
             ) : (
@@ -313,10 +313,10 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                           onClick={saveEdit}
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          Save
+                          Сохранить
                         </Button>
                         <Button size="sm" variant="default" onClick={cancelEdit}>
-                          Cancel
+                          Отмена
                         </Button>
                       </div>
                     ) : (
@@ -341,7 +341,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                   onClick={() => startEdit(path, "name", node.name)}
                   className="text-blue-600 hover:text-blue-700"
                 >
-                  Rename
+                  Переименовать
                 </Button>
 
                 {isLeaf && (
@@ -351,7 +351,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                     onClick={() => startEdit(path, "price", node.price!)}
                     className="text-blue-600 hover:text-blue-700"
                   >
-                    Edit Price
+                    Изменить цену
                   </Button>
                 )}
                 {!isLeaf && (
@@ -367,7 +367,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                       onClick={() => setShowAddSubcategory(pathId)}
                       className="text-green-600 hover:text-green-700"
                     >
-                      + Category
+                      + Категория
                     </Button>
                     <Button
                       size="sm"
@@ -375,7 +375,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                       onClick={() => setShowAddService(pathId)}
                       className="text-green-600 hover:text-green-700"
                     >
-                      + Service
+                      + Услуга
                     </Button>
                   </>
                 )}
@@ -385,7 +385,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
                   onClick={() => setDeleteModal(pathId)}
                   className="text-red-600 hover:text-red-700"
                 >
-                  Delete
+                  Удалить
                 </Button>
               </>
             )}
@@ -407,14 +407,13 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h4 className="font-medium text-gray-900">Categories & Services</h4>
+      <div className="flex justify-end items-center">
         <Button
           onClick={() => setShowAddCategory(true)}
           size="sm"
           className="bg-green-600 hover:bg-green-700"
         >
-          + Add Category
+          + Добавить категорию
         </Button>
       </div>
 
@@ -422,7 +421,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
         {Object.entries(priceList).map(([key, node]) => renderTreeItem(key, node, [key]))}
         {Object.keys(priceList).length === 0 && (
           <div className="text-center py-8 text-gray-500">
-            No categories found. Add a category to get started.
+            Категории не найдены. Добавь первую категорию что-бы начать.
           </div>
         )}
       </div>
@@ -435,7 +434,7 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
             <Input
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Category name..."
+              placeholder="Название категории..."
               className="w-full mb-4"
               onKeyDown={(e) => {
                 if (e.key === "Enter") addCategory()
@@ -445,10 +444,10 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
             />
             <div className="flex justify-end gap-2">
               <Button variant="default" onClick={() => setShowAddCategory(false)}>
-                Cancel
+                Отмена
               </Button>
               <Button onClick={addCategory} className="bg-blue-600 hover:bg-blue-700">
-                Add Category
+                Добавить категорию
               </Button>
             </div>
           </div>
@@ -465,8 +464,8 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
               autoFocus
             />
             <div className="flex justify-end gap-2 mt-4">
-              <Button onClick={() => setShowAddSubcategory(null)}>Cancel</Button>
-              <Button onClick={addSubcategory}>Add</Button>
+              <Button onClick={() => setShowAddSubcategory(null)}>Отмена</Button>
+              <Button onClick={addSubcategory}>Добавить</Button>
             </div>
           </div>
         </div>
@@ -476,14 +475,14 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg">
             <h3>Add Service</h3>
-            <Label className="my-2">Service name:</Label>
+            <Label className="my-2">Название услуги:</Label>
             <Input
               value={newServiceName}
-              placeholder="Tooth removing"
+              placeholder="Удаление зуба"
               onChange={(e) => setNewServiceName(e.target.value)}
               autoFocus
             />
-            <Label className="my-2">Service price:</Label>
+            <Label className="my-2">Цена за услугу:</Label>
             <Input
               type="number"
               value={newServicePrice === 0 ? "" : newServicePrice}
@@ -494,8 +493,8 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
               }}
             />
             <div className="flex justify-end gap-2 mt-4">
-              <Button onClick={() => setShowAddService(null)}>Cancel</Button>
-              <Button onClick={addService}>Add</Button>
+              <Button onClick={() => setShowAddService(null)}>Отменить</Button>
+              <Button onClick={addService}>Добавить </Button>
             </div>
           </div>
         </div>
@@ -506,16 +505,16 @@ export default function PriceListTree({ priceList, onUpdate, currency }: PriceLi
       {deleteModal && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg max-w-sm w-full">
-            <h3 className="text-lg font-medium mb-4">Confirm Delete</h3>
+            <h3 className="text-lg font-medium mb-4">Подтвердить удаление</h3>
             <p className="mb-6 text-gray-600">
-              Are you sure you want to delete <b>{deleteModal}</b>?
+              Вы уверены что хотите удалить <b>{deleteModal}</b>?
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="default" onClick={() => setDeleteModal(null)}>
-                Cancel
+                Отмена
               </Button>
               <Button className="bg-red-600 hover:bg-red-700" onClick={confirmDeleteItem}>
-                Delete
+                Удалить
               </Button>
             </div>
           </div>

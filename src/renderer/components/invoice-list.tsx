@@ -17,6 +17,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { CreateInvoice } from "@/components/create-invoice";
+import useAsync from "@/lib/hooks/useAsync";
+import LoadingErrorData from "@/components/loading-error-data";
+import ImportPricelist from "@/components/import-pricelist";
 
 
 
@@ -29,15 +32,15 @@ export default function InvoiceList() {
   const [isEditing, setIsEditing] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<InvoiceListItem>()
 
+  const { execute: getInvoiceList, error: getInvoiceListError, isLoading: getInvoiceListLoading } = useAsync(window.electron.getInvoicesList)
 
 
   useEffect(() => {
     // eslint-disable-next-line promise/catch-or-return
-    window.electron.getInvoicesList()
-      .then((invoicesList) => setInvoices(invoicesList))
-      .catch((e) => {console.error(e)})
-
-  }, []);
+    getInvoiceList()
+      .then(res => setInvoices(res))
+    // eslint-disable-next-line promise/catch-or-return
+  }, [getInvoiceList]);
 
   useEffect(() => {
     if(!invoices){return}
@@ -50,9 +53,7 @@ export default function InvoiceList() {
   }, [invoices, dateFilter, patientFilter]);
 
   const handleOpenInvoice = async (filename: string) => {
-    console.log("Open invoice:", filename);
     await window.electron.openInvoice({filename})
-    // Здесь можно вызвать ipcRenderer.invoke("open-invoice", { filename })
   }
 
   const handleEditInvoice = async (invoiceListItem: InvoiceListItem) => {
@@ -64,7 +65,8 @@ export default function InvoiceList() {
       date: new Date(invoiceListItem.date),
       totalAmount: invoiceListItem.totalAmount,
       services: invoiceListItem.services,
-      filename: invoiceListItem.filename
+      filename: invoiceListItem.filename,
+      subTotals: invoiceListItem.subTotals
     }
     setEditingInvoice(fullInvoice)
     console.log(fullInvoice)
@@ -84,27 +86,41 @@ export default function InvoiceList() {
     }
   };
 
+  // LOADING DATA CHECK
+  if (getInvoiceListLoading && !getInvoiceListError) {
+    return <LoadingErrorData isLoading message="Загрузка планов лечения..."
+    />
+  }
+  if (!getInvoiceListLoading && getInvoiceListError || !invoices) {
+    return (
+      <>
+        <LoadingErrorData isLoading={false} message="Ошибка загрузки планов лечения. Попробуйте еще раз."/>
+        <ImportPricelist />
+      </>
+    );
+  }
+
 
   return (
     <div className="space-y-6 overflow-auto">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold text-gray-900">Invoice List</h2>
-        <Button className="bg-blue-600 hover:bg-blue-700">Open Folder</Button>
+        <h2 className="text-2xl font-semibold text-gray-900">Планы лечения</h2>
+        <Button className="bg-blue-600 hover:bg-blue-700">Открыть папку</Button>
       </div>
 
       {/* Filters */}
       <div className="flex gap-4 bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex-1">
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Date</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Фильтр по дате</label>
           <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-full" />
         </div>
         <div className="flex-1">
           {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-          <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Patient Name</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Фильтр по имени пациента</label>
           <Input
             type="text"
-            placeholder="Enter patient name..."
+            placeholder="Введите имя пациента..."
             value={patientFilter}
             onChange={(e) => setPatientFilter(e.target.value)}
             className="w-full"
@@ -119,14 +135,14 @@ export default function InvoiceList() {
           <table className="w-full">
             <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Имя пациента</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сумма</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
             </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-            {filteredInvoices.map((invoice) => (
+            {filteredInvoices.slice().reverse().map((invoice) => (
               <tr key={invoice.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.patient}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(invoice.date).toLocaleDateString()}</td>
@@ -137,7 +153,7 @@ export default function InvoiceList() {
                     className="py-1 px-3 rounded-lg border-green-300 cursor-pointer"
                     onClick={() => handleOpenInvoice(invoice.filename)}
                   >
-                    Open Invoice
+                    Открыть план
                   </Button>
 
                   <Button
@@ -146,7 +162,7 @@ export default function InvoiceList() {
                     onClick={() => handleEditInvoice(invoice)}
                   >
                     <Edit className="w-4 h-4 mr-1" />
-                    Edit
+                    Редактировать
                   </Button>
 
                   <AlertDialog>
@@ -161,16 +177,16 @@ export default function InvoiceList() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Delete invoice?</AlertDialogTitle>
+                        <AlertDialogTitle>Удалить план?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This action cannot be undone. The file{" "}
-                          <span className="font-semibold">{invoice.filename}</span> will be permanently deleted.
+                          Это действие нельзя будет отменить. Файл {" "}
+                          <span className="font-semibold">{invoice.filename}</span> будет навсегда удален.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDeleteInvoice} className="bg-red-600 hover:bg-red-700">
-                          Delete
+                          Удалить
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -184,7 +200,7 @@ export default function InvoiceList() {
       }
 
       {filteredInvoices.length === 0 && (
-        <div className="text-center py-8 text-gray-500">No invoices found matching the current filters.</div>
+        <div className="text-center py-8 text-gray-500">Планы лечения, соответствующие текущим фильтрам, не найдены..</div>
       )}
     </div>
   )

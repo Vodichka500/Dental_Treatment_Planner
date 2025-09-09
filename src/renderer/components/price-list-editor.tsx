@@ -5,23 +5,25 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import  PriceListTree  from "@/components/price-list-tree";
 import { PriceList } from "@/lib/types";
-import { fetchPriceList, FetchStatus } from "@/lib/utils";
+import useAsync from "@/lib/hooks/useAsync";
+import LoadingErrorData from "@/components/loading-error-data";
 import ImportPricelist from './import-pricelist';
 
 export default function PriceListEditor() {
   const [priceList, setPriceList] = useState<PriceList | null>();
-  const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle");
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
   const [jsonInput, setJsonInput] = useState("");
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [okDisabled, setOkDisabled] = useState(true);
 
+  const { execute: getPriceList, error: getPriceListError, isLoading: getPriceListLoading } = useAsync(window.electron.getPricelist)
+
   useEffect(() => {
-    fetchPriceList(setPriceList, setFetchError, setFetchStatus);
-  }, []);
+    // eslint-disable-next-line promise/catch-or-return
+    getPriceList()
+      .then(res => setPriceList(res))
+  }, [getPriceList]);
 
   const handleExportJson = () => {
     if (!priceList) return;
@@ -72,28 +74,24 @@ export default function PriceListEditor() {
     setTimeout(() => setOkDisabled(false), 5000); // кнопка OK доступна через 5 секунд
   };
 
-  if (fetchStatus === "loading" || fetchStatus === "idle") {
-    return <div>Loading pricelist...</div>;
+  // LOADING DATA CHECK
+  if (getPriceListLoading && !getPriceListError) {
+    return <LoadingErrorData isLoading message="Загрузка прайслиста..."/>
   }
-
-  if (fetchStatus === "error") {
+  if (!getPriceListLoading && getPriceListError || !priceList) {
     return (
-      <div className="flex flex-col">
-        <div className="text-red-500">Error: {fetchError}</div>
-        <ImportPricelist/>
-      </div>
+      <>
+        <LoadingErrorData isLoading={false} message="Ошибка загрузки прайс-листа. Попробуйте ещё раз или загрузите прайс-лист ниже."/>
+        <ImportPricelist />
+      </>
     );
-  }
-
-  if (!priceList) {
-    return <div>No pricelist available.</div>;
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold text-gray-900">Price List Editor</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">Редактор прайслиста</h2>
         <div className="flex gap-2">
           <Button variant="default" onClick={openWarningDialog}>
             Import JSON
@@ -105,25 +103,13 @@ export default function PriceListEditor() {
       </div>
 
       {/* Currency Setting */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Currency</h3>
-        <div className="flex items-center gap-4">
-          <Input
-            type="text"
-            value={priceList.currency}
-            onChange={(e) =>
-              setPriceList({ ...priceList, currency: e.target.value })
-            }
-            className="w-32"
-            placeholder="BYN"
-          />
-          <span className="text-sm text-gray-500">Current currency for all prices</span>
-        </div>
+      <div className="bg-white p-3 rounded-lg border border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900 ">Валюта: {priceList.currency}</h3>
       </div>
 
       {/* Price List Tree */}
       <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Services & Prices</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Услуги и цены</h3>
         <PriceListTree
           priceList={priceList.pricelist}
           onUpdate={updatePriceList}
@@ -173,22 +159,22 @@ export default function PriceListEditor() {
           <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Warning</h3>
             <p className="text-sm text-gray-700 mb-6">
-              Importing a new JSON will <strong>overwrite your current price list</strong>.
-              Make sure to{" "}
+              Импорт нового JSON <strong>перезапишет ваш текущий прайс-лист</strong>.
+              Сначала убедитесь, что вы{" "}
               {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
-              <span className="underline font-extrabold cursor-pointer" onClick={handleExportJson}>export</span>
-              {" "}your current price list first!
+              <span className="underline font-extrabold cursor-pointer" onClick={handleExportJson}>экспортировали</span>
+              {" "}ваш текущий прайс-лист!
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="default" onClick={() => setShowWarningDialog(false)}>
-                Cancel
+                Отмена
               </Button>
               <Button
                 onClick={() => { setShowImportDialog(true); setShowWarningDialog(false); }}
                 disabled={okDisabled}
                 className={`bg-red-600 hover:bg-red-700 ${okDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
               >
-                {`OK${  okDisabled ? " (wait 5 sek)" : ""}` }
+                {`OK${  okDisabled ? " (Подождите 5с.)" : ""}` }
               </Button>
             </div>
           </div>
