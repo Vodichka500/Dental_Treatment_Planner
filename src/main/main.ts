@@ -100,7 +100,7 @@ ipcMain.handle("save-invoice", async (_, data: { filename: string; bufferedInvoi
     console.log("New invoice saved at:", filePath);
   } catch (err) {
     console.error("Failed to save invoice:", err);
-    return { success: false, error: err };
+    throw err
   }
 });
 
@@ -112,7 +112,6 @@ ipcMain.handle("open-invoice", async  (_, data: {filename:string}) => {
   }
   const filePath = path.join(invoicesDir, sanitizeFilename(data.filename));
   const result = await shell.openPath(filePath);
-
   if (result) {
     // если не пустая строка → ошибка
     throw new Error(`Failed to open file: ${result}`);

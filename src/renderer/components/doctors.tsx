@@ -43,12 +43,12 @@ export default function Doctors() {
 
   // Add new doctor
   const handleAddDoctor = async () => {
-    if (!formData.name.trim() || !formData.specialization.trim()) return;
+    if (!formData.name.trim() ) return;
 
     const newDoctor: Doctor = {
       id: Date.now().toString(),
       name: formData.name.trim(),
-      specialization: formData.specialization.trim()
+      specialization: formData.specialization.trim() ?? ""
     };
 
     const updatedDoctors = [...doctors, newDoctor];
@@ -148,7 +148,7 @@ export default function Doctors() {
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label htmlFor="name">ФИО</Label>
+                <Label htmlFor="name">ФИО*</Label>
                 <Input
                   id="name"
                   placeholder="Введи ФИО доктора"
@@ -169,7 +169,7 @@ export default function Doctors() {
                 <Button
                   onClick={editingDoctor ? handleEditDoctor : handleAddDoctor}
                   className="flex-1 flex items-center justify-center gap-2"
-                  disabled={!formData.name.trim() || !formData.specialization.trim() || isSaveDoctorsLoading}
+                  disabled={!formData.name.trim() || isSaveDoctorsLoading}
                 >
                   {/* eslint-disable-next-line no-nested-ternary */}
                   {getButtonText()}

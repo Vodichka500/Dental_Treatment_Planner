@@ -9,9 +9,16 @@ import {
   TableCell,
   WidthType,
   ShadingType,
-  AlignmentType, ImageRun, UnderlineType
+  AlignmentType, ImageRun, UnderlineType, PageNumber, Footer, VerticalAlign
 } from "docx";
-import { Invoice, InvoiceItemService, InvoiceListItem } from "@/lib/types";
+import {
+  type Comment,
+  type ExtendedServiceItem,
+  Invoice,
+  InvoiceItemService,
+  InvoiceListItem,
+  type SubTotal
+} from "@/lib/types";
 import logoImagePath from "../../../assets/logo.jpg";
 
 function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", doctor: string, pacient: string, date: Date | string ) {
@@ -33,6 +40,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
         height: { value: 500, rule: "atLeast" },
         children: [
           new TableCell({
+            verticalAlign: VerticalAlign.BOTTOM,
             width: { size: 60, type: WidthType.PERCENTAGE },
             children: [new Paragraph(`Дата: ${(new Date(date)).toLocaleDateString() }`)],
             borders: {bottom: {size: 1, style: "dotted"}},
@@ -63,6 +71,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
         height: { value: 500, rule: "atLeast" },
         children: [
           new TableCell({
+            verticalAlign: VerticalAlign.BOTTOM,
             children: [new Paragraph("Врач:")],
             borders: {bottom: {size: 1, style: "dotted"}},
           }),
@@ -74,6 +83,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
         height: { value: 500, rule: "atLeast" },
         children: [
           new TableCell({
+            verticalAlign: VerticalAlign.BOTTOM,
             children: [new Paragraph({
               children: [
                 new TextRun({
@@ -93,6 +103,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
         height: { value: 500, rule: "atLeast" },
         children: [
           new TableCell({
+            verticalAlign: VerticalAlign.BOTTOM,
             children: [new Paragraph("Пациент:")],
             borders: {bottom: {size: 1, style: "dotted"}}
           }),
@@ -125,6 +136,7 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
         height: { value: 500, rule: "atLeast" },
         children: [
           new TableCell({
+            verticalAlign: VerticalAlign.BOTTOM,
             children: [new Paragraph({
               children: [
                 new TextRun({
@@ -141,13 +153,13 @@ function getHeader(bufferedImage: any, fileType: "jpg"|  "bmp"|  "gif" | "png", 
   });
 }
 
-function makeProcedureLine(index: number, steps: string[], selectedTooths: string[]) {
+function makeProcedureLine(steps: string[], selectedTooths: string[]) {
   const toothNumbersText = selectedTooths.length > 0 ?  ` (${selectedTooths.join(", ")})` : "";
   return new Paragraph({
     children: [
-      new TextRun({ text: `${index}. `, bold: true, size: 22 }),
-      new TextRun({ text: steps.join(" ⸱ "), bold: true, size: 22 }),
-      new TextRun({ text: toothNumbersText, bold: true, size: 22 }),
+      new TextRun({ text: `□    `, size: 22 }),
+      new TextRun({ text: steps.join(" ⸱ "), size: 22 }),
+      new TextRun({ text: toothNumbersText, size: 22 }),
     ],
   });
 }
@@ -158,7 +170,6 @@ function makePriceLine(unitPrice: number, quantity: number, currency: string) {
     children: [
       new TextRun({
         text: `Цена: ${total} ${currency} (${unitPrice} x ${quantity})`,
-        bold: true,
       }),
     ],
     alignment: "right", // выравнивание по правому краю
@@ -262,58 +273,121 @@ export function getFooter(): Paragraph[] {
   ];
 }
 
+const getAllItemsOrdered = (invoice: InvoiceListItem) => {
+  const allItems: Array<{
+    type: 'service' | 'subTotal' | 'comment';
+    item: ExtendedServiceItem | SubTotal | Comment;
+    order: number;
+  }> = [
+    // Всегда добавляем сервисы
+    ...invoice.services.map(service => ({ type: 'service' as const, item: service, order: service.order })),
+
+    // Добавляем subTotals только если они есть и не пустые
+    ...(invoice.subTotals?.length
+      ? invoice.subTotals.map(subTotal => ({ type: 'subTotal' as const, item: subTotal, order: subTotal.order }))
+      : []),
+
+    // Добавляем comments только если они есть и не пустые
+    ...(invoice.comments?.length
+      ? invoice.comments.map(comment => ({ type: 'comment' as const, item: comment, order: comment.order }))
+      : []),
+  ];
+
+  return allItems.sort((a, b) => a.order - b.order);
+};
+
+
+
 export async function generateInvoiceWord(invoice: InvoiceListItem) {
 
   const response = await fetch(logoImagePath);
   const arrayBuffer = await response.arrayBuffer();
   const bufferedImage = new Uint8Array(arrayBuffer);
 
-  const header = getHeader(bufferedImage, "jpg", `${invoice.doctor.name} - ${invoice.doctor.specialization}` , invoice.patient, invoice.date)
+  const header = getHeader(bufferedImage, "jpg", `${invoice.doctor.name}${invoice.doctor.specialization?.trim() ? ` - ${  invoice.doctor.specialization}` : ""}` , invoice.patient, invoice.date)
   const footer = getFooter()
 
   const spacing1 = Array.from({ length: 1 }, () => new Paragraph(""));
   const spacing2 = Array.from({ length: 2 }, () => new Paragraph(""));
   const spacing3 = Array.from({ length: 3 }, () => new Paragraph(""));
-  console.log("Preparing to create doc: OK")
-  const procedures: any[] = [];
-  invoice.services.forEach((srv: InvoiceItemService, idx: number) => {
-    procedures.push(makeProcedureLine(idx + 1, srv.path, srv.selectedTeeth));
 
-    if (srv.comment) {
-      procedures.push(...spacing1);
-      procedures.push(new Paragraph("Комментарий врача:"));
+  const invoiceItems: any[] = [];
 
-      // Разбиваем по переносам
-      const lines = srv.comment.split("\n");
-      const runs = lines.flatMap((line, i) => {
-        if (i === 0) return [new TextRun(line)];
-        return [new TextRun({ text: line, break: 1 })];
-      });
+  const allItems = getAllItemsOrdered(invoice)
 
-      procedures.push(new Paragraph({ children: runs }));
+  allItems.forEach((item) => {
+    if (item.type === "service"){
+      const srv = item.item as ExtendedServiceItem
+
+      invoiceItems.push(makeProcedureLine(srv.path, srv.selectedTeeth));
+      if (srv.comment) {
+        invoiceItems.push(...spacing1);
+
+        const lines = srv.comment.split("\n");
+        const runs = lines.flatMap((line, i) => {
+          if (i === 0) return [new TextRun({ text: line, italics: true, bold: true })]; // курсив для первой строки
+          return [new TextRun({ text: line, break: 1, italics: true, bold: true })];   // курсив для остальных
+        });
+
+        invoiceItems.push(new Paragraph({ children: runs }));
+      }
+      if (srv.teethComments){
+        invoiceItems.push(...spacing1);
+        Object.entries(srv.teethComments).forEach(([tooth, comment]) => {
+          invoiceItems.push(
+            new Paragraph({
+              children: [
+                new TextRun({text:`Зуб ${tooth}: `, italics: true, bold: true}),
+                new TextRun({ text: comment, italics: true, bold: true }) // курсив для комментария
+              ]
+            })
+          );
+        });
+      }
+      if (srv.linkedToTeeth && srv.selectedTeeth?.length > 0) {
+        const teethNums = srv.selectedTeeth.map((n: string) => Number(n));
+        invoiceItems.push(...spacing2)
+        invoiceItems.push(createTeethTable(teethNums));
+      }
+
+      invoiceItems.push(...spacing1)
+      invoiceItems.push(
+        makePriceLine(srv.price, srv.quantity, "BYN")
+      );
+      invoiceItems.push(...spacing1);
     }
+    else if (item.type === "comment"){
+      const comment = item.item as Comment
 
-    if (srv.teethComments){
-      procedures.push(...spacing1);
-      Object.entries(srv.teethComments).map(([tooth, comment]) => {
-        procedures.push(new Paragraph(`Зуб ${tooth}: ${comment}`))
-      })
+      invoiceItems.push(...spacing1);
+      invoiceItems.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: comment.comment, italics: true, bold: true }) // курсив для комментария
+          ]
+        })
+      )
+      invoiceItems.push(...spacing1);
     }
-
-    if (srv.linkedToTeeth && srv.selectedTeeth?.length > 0) {
-      const teethNums = srv.selectedTeeth.map((n: string) => Number(n));
-      procedures.push(...spacing2)
-      procedures.push(createTeethTable(teethNums));
+    else if (item.type === "subTotal"){
+      const subTotal = item.item as SubTotal
+      invoiceItems.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${subTotal.subTotalName}: ${subTotal.subTotalAmount} BYN`,
+              bold: true,
+              size: 24
+            }),
+          ],
+          alignment: "right", // выравнивание по правому краю
+        })
+      )
+      invoiceItems.push(...spacing1);
     }
+  })
 
-    procedures.push(...spacing1)
-    procedures.push(
-      makePriceLine(srv.price, srv.quantity, "BYN")
-    );
-    procedures.push(...spacing2);
-  });
 
-  // Итоговая сумма
   const totalLine = new Paragraph({
     children: [
       new TextRun({
@@ -348,6 +422,26 @@ export async function generateInvoiceWord(invoice: InvoiceListItem) {
 
           }
         },
+        footers:{
+          default: new Footer({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    children: [
+                      PageNumber.CURRENT,
+                      "/",
+                      PageNumber.TOTAL_PAGES
+                    ],
+                    bold: true,
+                    size: 20,
+                  }),
+                ],
+                alignment: "right"
+              })
+            ]
+          })
+        },
         children: [
           header,
           ...spacing3,
@@ -362,7 +456,7 @@ export async function generateInvoiceWord(invoice: InvoiceListItem) {
             alignment: "center",
           }),
           ...spacing2,
-          ...procedures,
+          ...invoiceItems,
           ...spacing3,
           totalLine,
           ...spacing3,

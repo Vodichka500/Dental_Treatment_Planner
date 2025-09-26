@@ -3,14 +3,18 @@
 import type { Screen } from "@/App";
 import { Button } from '@/components/ui/Button';
 import Logo from "assets/icon.svg";
+import React from "react";
+import type { ExtendedServiceItem } from "@/lib/types";
+import { ChevronLeft } from "lucide-react";
 
 interface NavigationProps {
   currentScreen: Screen;
   onScreenChange: (screen: Screen) => void;
+  setIsNavOpen: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 // eslint-disable-next-line import/prefer-default-export
-export function Navigation({ currentScreen, onScreenChange }: NavigationProps) {
+export function Navigation({ currentScreen, onScreenChange, setIsNavOpen }: NavigationProps) {
   const navItems = [
     { id: 'invoices' as Screen, label: 'Планы лечения', icon: '📋' },
     { id: 'create' as Screen, label: 'Создать план', icon: '➕' },
@@ -49,8 +53,17 @@ export function Navigation({ currentScreen, onScreenChange }: NavigationProps) {
               {item.label}
             </Button>
           ))}
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-left text-gray-700 hover:bg-gray-100"
+            onClick={() => setIsNavOpen(false)}
+          >
+            <span className="mr-3"><ChevronLeft/></span>
+            Скрыть меню
+          </Button>
         </div>
       </div>
+
     </nav>
   );
 }

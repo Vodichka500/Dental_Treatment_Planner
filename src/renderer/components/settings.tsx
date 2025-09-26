@@ -66,7 +66,7 @@ export function Settings() {
           <div className="space-y-3 text-sm text-gray-600">
             <div className="flex justify-between">
               <span>Версия:</span>
-              <span className="font-medium">v1.0.0</span>
+              <span className="font-medium">v1.1.0</span>
             </div>
             <div className="flex justify-between">
               <span>Последние изменение:</span>

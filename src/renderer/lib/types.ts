@@ -32,6 +32,7 @@ export interface InvoiceItemService {
   name: string;
   price: number;
   quantity: number;
+  order: number
   selectedTeeth: string[];
   teethComments?: { [toothNumber: number]: string },
   comment?: string
@@ -42,10 +43,15 @@ export interface InvoiceItemService {
 export interface SubTotal{
   id: string
   subTotalName: string
-  afterServiceId: string
+  order: number
   subTotalAmount: number
 }
 
+export interface Comment{
+  id: string
+  order: number
+  comment: string
+}
 
 export interface  InvoiceListItem {
   id: string,
@@ -56,6 +62,7 @@ export interface  InvoiceListItem {
   doctor: Doctor,
   services: InvoiceItemService[],
   subTotals?: SubTotal[]
+  comments?: Comment[]
 }
 
 export interface ServiceItem {
@@ -68,6 +75,7 @@ export interface ServiceItem {
 
 export interface ExtendedServiceItem extends ServiceItem {
   quantity: number
+  order: number,
   selectedTeeth: string[]
   linkedToTeeth: boolean
   comment?: string,

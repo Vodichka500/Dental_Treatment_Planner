@@ -66,7 +66,8 @@ export default function InvoiceList() {
       totalAmount: invoiceListItem.totalAmount,
       services: invoiceListItem.services,
       filename: invoiceListItem.filename,
-      subTotals: invoiceListItem.subTotals
+      subTotals: invoiceListItem.subTotals,
+      comments: invoiceListItem.comments
     }
     setEditingInvoice(fullInvoice)
     console.log(fullInvoice)

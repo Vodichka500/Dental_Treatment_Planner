@@ -59,7 +59,7 @@ function PatientInfo({
           </label>
 
           <Select
-            value={selectedDoctor?.id || ''}
+            value={selectedDoctor?.id || ""}
             onValueChange={(value) => {
               const doctor = doctors.find((d) => d.id === value) || null;
               setSelectedDoctor(doctor);
@@ -67,16 +67,36 @@ function PatientInfo({
             }}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Выберите доктора..." />
+              {/* Если выбран врач → кастомный текст, иначе плейсхолдер */}
+              {selectedDoctor ? (
+                <span>
+                  {(selectedDoctor.name + (selectedDoctor.specialization ? ` - ${selectedDoctor.specialization}` : ""))
+                    .length > 15 ?
+                    `${(selectedDoctor.name + (selectedDoctor.specialization ?
+                        ` - ${selectedDoctor.specialization}`
+                        :
+                        "")
+                    ).slice(0, 12)  }...`
+                    : selectedDoctor.name + (selectedDoctor.specialization ?
+                    ` - ${selectedDoctor.specialization}` : ""
+                  )}
+                </span>
+              ) : (
+                <SelectValue placeholder="Выберите доктора..." />
+              )}
             </SelectTrigger>
+
             <SelectContent>
               {doctors.map((doctor) => (
                 <SelectItem key={doctor.id} value={doctor.id}>
-                  {doctor.name} - {doctor.specialization}
+                  {/* В списке всегда полное имя */}
+                  {doctor.name}
+                  {doctor.specialization && ` - ${doctor.specialization}`}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
         </div>
 
         <div>
